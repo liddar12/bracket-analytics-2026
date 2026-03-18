@@ -115,6 +115,46 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 .trap-badge-pos{background:#2a1f00;color:#f39c12;border:1px solid #f39c12}
 .trap-badge-no{background:#1a1a1a;color:#667;border:1px solid #333}
 .champ-row{display:flex;flex-direction:column;gap:4px;justify-content:center;padding:10px}
+
+/* ── Upset Risk System ── */
+.risk-footer{padding:3px 7px 4px;font-size:.6rem;font-weight:700;display:flex;align-items:center;gap:4px;border-top:1px solid #1e3d5c;letter-spacing:.03em}
+.risk-footer.rf-high{background:#2d0d0d;color:#ff7070;border-top-color:#5a1818}
+.risk-footer.rf-med{background:#2a1e00;color:#f5a623;border-top-color:#4d3800}
+.risk-footer.rf-low{background:#0e1e2a;color:#6dcbff;border-top-color:#1e3d5c}
+.matchup-card.risk-high{border-color:#8b2020!important}
+.matchup-card.risk-high:hover{border-color:#e05050!important}
+.matchup-card.risk-med{border-color:#7a5200!important}
+.matchup-card.risk-med:hover{border-color:#d4900a!important}
+/* Risk Section in Analysis Pane */
+.risk-section{margin:10px 0;border-radius:6px;overflow:hidden;border:1px solid #2a1a00}
+.risk-section.rs-clean{border-color:#0e2a12}
+.risk-header{padding:7px 10px;display:flex;align-items:center;gap:6px;font-size:.73rem;font-weight:700;letter-spacing:.04em}
+.rh-high{background:#2d0d0d;color:#ff7070;border-bottom:1px solid #5a1818}
+.rh-med{background:#2a1e00;color:#f5a623;border-bottom:1px solid #4d3800}
+.rh-clean{background:#0e2218;color:#4fc3a1;border-bottom:1px solid #0e2a12}
+.risk-flags-body{background:#130d0d;padding:8px 10px}
+.rs-clean .risk-flags-body{background:#0a1612}
+.risk-flag{display:flex;gap:9px;margin-bottom:9px;font-size:.71rem;line-height:1.45}
+.risk-flag:last-child{margin-bottom:0}
+.rflag-icon{flex-shrink:0;margin-top:1px;font-size:.85rem}
+.rflag-title{font-weight:700;color:#f5a623;margin-bottom:2px;font-size:.73rem}
+.rflag-desc{color:#8a8a9a;line-height:1.4}
+/* Adjustment Slider */
+.adj-section{margin:10px 0;background:#0b1520;border:1px solid #1a3555;border-radius:6px;padding:9px 10px}
+.adj-title{font-size:.73rem;color:#9bb;font-weight:700;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center}
+.adj-subtitle{font-size:.62rem;color:#445;margin-bottom:8px;line-height:1.4}
+.adj-row{display:flex;align-items:center;gap:7px}
+.adj-edge-label{font-size:.62rem;color:#445;white-space:nowrap;max-width:70px;overflow:hidden;text-overflow:ellipsis}
+.adj-slider{flex:1;accent-color:var(--accent);cursor:pointer;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:#1a2f47;outline:none}
+.adj-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #0d1b2a}
+.adj-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #0d1b2a}
+.adj-val-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.adj-display{font-size:.78rem;font-weight:700}
+.adj-disp-pos{color:#f5a623}
+.adj-disp-neg{color:#6dcbff}
+.adj-disp-zero{color:#445}
+.adj-reset-btn{font-size:.62rem;color:#445;cursor:pointer;background:none;border:1px solid #1a3555;border-radius:3px;padding:2px 7px;color:#667}
+.adj-reset-btn:hover{color:#aaa;border-color:#2a4a6a}
 .champ-label{font-size:.65rem;color:#446;text-align:center;font-weight:700;letter-spacing:.1em}
 
 /* ── Buttons ── */
@@ -223,9 +263,11 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
   </div>
   <div style="display:flex;align-items:center;gap:6px">
     <div class="legend">
-      <div class="legend-item"><div class="ldot trap-in"></div> Trapezoid (champ profile)</div>
+      <div class="legend-item"><div class="ldot trap-in"></div> Trapezoid</div>
       <div class="legend-item"><div class="ldot trap-pos"></div> Possible</div>
       <div class="legend-item"><div class="ldot trap-no"></div> Out</div>
+      <div class="legend-item" style="margin-left:6px;border-left:1px solid #2a4060;padding-left:10px"><span style="color:#ff7070;font-size:.75rem">🔺</span> High risk</div>
+      <div class="legend-item"><span style="color:#f5a623;font-size:.75rem">⚠️</span> Upset flag</div>
     </div>
     <button class="weights-btn" onclick="openWeights()">⚙ Weights</button>
     <button class="reset-btn" onclick="resetBracket()">↺ Reset</button>
@@ -2144,6 +2186,216 @@ function closeMobileDrawer(){
 // ── Model weights (editable via ⚙ Weights button) ──
 const WEIGHTS = { barthag: 35, quad: 35, kp: 18, seed: 8, tempo: 4 };
 
+// ── Per-game manual probability adjustments ──
+// Positive value = shift probability toward T1; negative = toward T2
+const ADJUSTMENTS = {};
+
+// ── Upset Risk Detection Engine ──
+// Flags hidden factors the 5-factor model doesn't capture, derived from NIL era upset analysis
+function detectUpsetRisk(t1name, t2name) {
+  const t1 = getTeam(t1name), t2 = getTeam(t2name);
+  if (!t1 || !t2) return [];
+  const flags = [];
+  const [fav, dog] = t1.seed <= t2.seed ? [t1, t2] : [t2, t1];
+  const [favName, dogName] = t1.seed <= t2.seed ? [t1name, t2name] : [t2name, t1name];
+  const seedGap = Math.abs(t1.seed - t2.seed);
+
+  // FLAG 1: Trapezoid Fail — high-seeded team that failed the bilateral efficiency test
+  // NIL era data: Kentucky 2022 (#2 seed), Kentucky 2024 (#3 seed) both lost with this profile
+  if (fav.seed <= 5 && fav.trap === "OUT") {
+    flags.push({
+      severity: "high", icon: "🔺", title: "Trapezoid Fail",
+      desc: `${favName} is seeded #${fav.seed} but fails the bilateral efficiency test `+
+            `(KP Off #${fav.kp_off}, Def #${fav.kp_def}). NIL era data: Kentucky fell with `+
+            `this exact profile in 2022 and 2024. Teams with prestige seedings but no `+
+            `defensive balance are the most reliable upset targets in the bracket.`
+    });
+  } else if (fav.seed <= 4 && fav.trap === "POSSIBLE") {
+    flags.push({
+      severity: "med", icon: "⚠️", title: "Partial Trapezoid",
+      desc: `${favName} has one elite efficiency dimension but not both inside the top 25. `+
+            `The champion profile requires both KP Off and Def in the top 25 — this team is `+
+            `only halfway there, creating a structural soft spot.`
+    });
+  }
+
+  // FLAG 2: KP Inversion — underdog's efficiency rank is better or near-equal to favorite's
+  // Iowa State 2022: #11 seed with KP #18 vs LSU at KP #30 — model actually favored the "underdog"
+  const kpGap = dog.kp_rk - fav.kp_rk;
+  if (kpGap < 0) {
+    flags.push({
+      severity: "high", icon: "🔄", title: "KP Inversion",
+      desc: `${dogName} (KP #${dog.kp_rk}) ranks HIGHER in efficiency than `+
+            `${favName} (KP #${fav.kp_rk}) despite the lower seed. The committee seeded by `+
+            `record and conference prestige, not efficiency. Iowa State 2022 (#11 seed, KP #18 `+
+            `vs LSU KP #30) is the exact NIL era template — the model called it a model favorite.`
+    });
+  } else if (kpGap < 12 && seedGap > 3) {
+    flags.push({
+      severity: "high", icon: "🔄", title: "Near KP Inversion",
+      desc: `${dogName} (KP #${dog.kp_rk}) is nearly equal to ${favName} (KP #${fav.kp_rk}) `+
+            `in efficiency despite a ${seedGap}-seed difference. The seed gap significantly `+
+            `overstates the true quality gap — this matchup is far closer than it looks on paper.`
+    });
+  } else if (kpGap < 22 && seedGap > 5) {
+    flags.push({
+      severity: "med", icon: "📊", title: "Seeding Noise",
+      desc: `${seedGap}-seed gap but only a ${kpGap}-rank KP difference. NIL era transfer portal `+
+            `activity creates rosters the committee can't fully evaluate mid-year. NC State 2024 `+
+            `(17-14 record seeded #11 but KP #42) reached the Final Four on this exact pattern.`
+    });
+  }
+
+  // FLAG 3: Possession Trap — underdog plays slower with elite defense
+  // Princeton 2023, Furman 2023: both slowed games to create variance
+  const tempoDiff = dog.adjt - fav.adjt;
+  if (tempoDiff < -4.5 && dog.kp_def <= 55) {
+    flags.push({
+      severity: "med", icon: "🐢", title: "Possession Trap",
+      desc: `${dogName} plays ${Math.abs(tempoDiff).toFixed(1)} fewer possessions/40min than `+
+            `${favName} (${dog.adjt} vs ${fav.adjt}) and defends at KP Def #${dog.kp_def}. `+
+            `Fewer possessions = more variance per shot. Princeton 2023 and Furman 2023 both `+
+            `used this exact template to eliminate higher-seeded teams.`
+    });
+  }
+
+  // FLAG 4: One-way offensive dominant favorite — elite offense, exposed defense
+  // Auburn 2022, various Kentucky teams: big scorer, can't stop anyone
+  if (fav.kp_off <= 15 && fav.kp_def > 50) {
+    flags.push({
+      severity: "med", icon: "⚡", title: "One-Way Offense Risk",
+      desc: `${favName} is elite offensively (KP Off #${fav.kp_off}) but carries a soft defense `+
+            `(KP Def #${fav.kp_def}). March eliminates the scoring opportunities that mask `+
+            `defensive gaps. An opponent that controls pace and executes half-court can neutralize `+
+            `the offensive advantage entirely.`
+    });
+  } else if (fav.kp_def <= 12 && fav.kp_off > 55) {
+    flags.push({
+      severity: "low", icon: "🛡", title: "One-Way Defense Profile",
+      desc: `${favName} is elite defensively (KP Def #${fav.kp_def}) but limited offensively `+
+            `(KP Off #${fav.kp_off}). In low-possession games, a single hot shooting stretch `+
+            `from the underdog can flip the outcome — the margin for error on offense is thin.`
+    });
+  }
+
+  // FLAG 5: Hidden efficiency closeness — Barthag gap far smaller than seed gap implies
+  const barthagGap = Math.abs(fav.barthag - dog.barthag);
+  if (seedGap >= 6 && barthagGap < 0.075) {
+    flags.push({
+      severity: "med", icon: "📉", title: "Hidden Efficiency Close",
+      desc: `Despite a ${seedGap}-seed gap, the Barthag difference is only `+
+            `${barthagGap.toFixed(3)} (${favName}: ${fav.barthag.toFixed(3)}, `+
+            `${dogName}: ${dog.barthag.toFixed(3)}). The model's actual win probability `+
+            `is far tighter than the seeding suggests — this is not a safe chalk pick.`
+    });
+  }
+
+  // FLAG 6: Elite defensive underdog — double-digit seed with D30 or better
+  // Oakland 2024 (KP Def solid), Princeton 2023 (top defensive team)
+  if (dog.seed >= 10 && dog.kp_def <= 30) {
+    flags.push({
+      severity: "med", icon: "🧱", title: "Elite Defensive Underdog",
+      desc: `${dogName} (#${dog.seed} seed) ranks KP Def #${dog.kp_def} — a top-30 defense `+
+            `in a single-elimination game keeps any result on the table. In the NIL era, `+
+            `double-digit seeds with elite defense (Oakland 2024, Princeton 2023) account for `+
+            `a disproportionate share of bracket chaos.`
+    });
+  }
+
+  return flags;
+}
+
+function riskLevel(flags) {
+  if (!flags || !flags.length) return "clean";
+  if (flags.some(f => f.severity === "high")) return "high";
+  if (flags.length >= 2) return "med";
+  return "low";
+}
+
+function riskFooterHTML(t1name, t2name) {
+  const t1 = getTeam(t1name), t2 = getTeam(t2name);
+  if (!t1 || !t2) return '';
+  const flags = detectUpsetRisk(t1name, t2name);
+  const level = riskLevel(flags);
+  if (level === "clean") return '';
+  const cls   = level === "high" ? "rf-high" : level === "med" ? "rf-med" : "rf-low";
+  const icon  = level === "high" ? "🔺" : "⚠️";
+  const label = level === "high"
+    ? `HIGH UPSET RISK — ${flags.length} flag${flags.length > 1 ? 's' : ''}`
+    : `${flags.length} upset risk flag${flags.length > 1 ? 's' : ''}`;
+  return `<div class="risk-footer ${cls}">${icon} ${label}</div>`;
+}
+
+function riskSectionHTML(t1name, t2name) {
+  const t1 = getTeam(t1name), t2 = getTeam(t2name);
+  if (!t1 || !t2) return '';
+  const flags = detectUpsetRisk(t1name, t2name);
+  const level = riskLevel(flags);
+  if (level === "clean") {
+    return `<div class="risk-section rs-clean">
+      <div class="risk-header rh-clean">✅ No hidden upset risk flags detected — model reliable</div>
+      <div class="risk-flags-body" style="font-size:.68rem;color:#446;padding:6px 10px">
+        All 6 risk checks passed: bilateral efficiency, seeding noise, KP inversion, possession trap, one-way dominance, hidden Barthag gap.
+      </div>
+    </div>`;
+  }
+  const hdrCls = level === "high" ? "rh-high" : "rh-med";
+  const hdrLabel = level === "high"
+    ? `🔺 HIGH UPSET RISK — ${flags.length} flags triggered`
+    : `⚠️ ${flags.length} upset risk flag${flags.length > 1 ? 's' : ''} — review below`;
+  const flagHTML = flags.map(f => `
+    <div class="risk-flag">
+      <div class="rflag-icon">${f.icon}</div>
+      <div>
+        <div class="rflag-title">${f.title}</div>
+        <div class="rflag-desc">${f.desc}</div>
+      </div>
+    </div>`).join('');
+  return `<div class="risk-section">
+    <div class="risk-header ${hdrCls}">${hdrLabel}</div>
+    <div class="risk-flags-body">${flagHTML}</div>
+  </div>`;
+}
+
+function adjSectionHTML(gameId, t1name, t2name) {
+  const adj = ADJUSTMENTS[gameId] || 0;
+  const dispCls = adj > 0 ? 'adj-disp-pos' : adj < 0 ? 'adj-disp-neg' : 'adj-disp-zero';
+  const dispText = adj > 0 ? `+${adj}% to ${t1name}`
+                 : adj < 0 ? `${adj}% to ${t2name}`
+                 : '±0%  —  model default';
+  const t1s = t1name.replace(/'/g, "\\'");
+  const t2s = t2name.replace(/'/g, "\\'");
+  return `<div class="adj-section">
+    <div class="adj-title">
+      <span>🎚 Manual Probability Override</span>
+      <button class="adj-reset-btn" onclick="resetAdj('${gameId}')">Reset ×</button>
+    </div>
+    <div class="adj-subtitle">Adjust for factors the model can't see: injuries, travel fatigue, portal roster cohesion, hot shooting runs, matchup-specific schemes.</div>
+    <div class="adj-row">
+      <div class="adj-edge-label">← ${t2name}</div>
+      <input type="range" class="adj-slider" min="-25" max="25" step="1" value="${adj}"
+             oninput="applyAdj('${gameId}','${t1s}','${t2s}',parseInt(this.value))">
+      <div class="adj-edge-label" style="text-align:right">${t1name} →</div>
+    </div>
+    <div class="adj-val-row">
+      <div class="adj-display ${dispCls}" id="adjDisp_${gameId}">${dispText}</div>
+      <div style="font-size:.6rem;color:#334">Drag to ±25%</div>
+    </div>
+  </div>`;
+}
+
+function applyAdj(gameId, t1name, t2name, value) {
+  if (value === 0) { delete ADJUSTMENTS[gameId]; }
+  else { ADJUSTMENTS[gameId] = value; }
+  // Refresh analysis pane to update probability bar
+  if (window._selectedGame) showAnalysis(window._selectedGame);
+}
+
+function resetAdj(gameId) {
+  delete ADJUSTMENTS[gameId];
+  if (window._selectedGame) showAnalysis(window._selectedGame);
+}
+
 // ── Weights editor functions ──
 function openWeights() {
   document.getElementById('nBarthag').value = WEIGHTS.barthag;
@@ -2204,9 +2456,9 @@ function applyWeights() {
   if (window._selectedGame) showAnalysis(window._selectedGame);
 }
 
-function composite(nameA, nameB) {
+function composite(nameA, nameB, gameId) {
   const a = getTeam(nameA), b = getTeam(nameB);
-  if (!a || !b) return {comp:50,barthag:50,quad:50,kp:50,seed:50,tempo:50};
+  if (!a || !b) return {comp:50,barthag:50,quad:50,kp:50,seed:50,tempo:50,adjusted:false,adjOffset:0,rawComp:50};
 
   // 1. Barthag log5
   const ba=a.barthag, bb=b.barthag;
@@ -2235,7 +2487,11 @@ function composite(nameA, nameB) {
   // Apply user-controlled weights (normalized to fractions)
   const wB = WEIGHTS.barthag/100, wQ = WEIGHTS.quad/100,
         wK = WEIGHTS.kp/100,      wS = WEIGHTS.seed/100, wT = WEIGHTS.tempo/100;
-  const comp = wB*pBarth + wQ*pQuad + wK*pKP + wS*pSeed + wT*pTempo;
+  const rawComp = wB*pBarth + wQ*pQuad + wK*pKP + wS*pSeed + wT*pTempo;
+
+  // Apply per-game manual adjustment (from ADJUSTMENTS store)
+  const adjOffset = (gameId && ADJUSTMENTS[gameId]) ? ADJUSTMENTS[gameId] / 100 : 0;
+  const comp = Math.max(0.01, Math.min(0.99, rawComp + adjOffset));
 
   return {
     comp: Math.round(comp*1000)/10,
@@ -2244,6 +2500,9 @@ function composite(nameA, nameB) {
     kp: Math.round(pKP*1000)/10,
     seed: Math.round(pSeed*1000)/10,
     tempo: Math.round(pTempo*1000)/10,
+    rawComp: Math.round(rawComp*1000)/10,
+    adjusted: Math.abs(adjOffset) > 0.001,
+    adjOffset: Math.round(adjOffset*100),
   };
 }
 
@@ -2310,10 +2569,13 @@ function renderBracket() {
       if (wt) html += `<p style="color:#aaa;margin-top:4px">T-Rank #${wt.trank} · ${wt.rec} · ${wt.conf}</p>`;
       html += `</div>`;
     }
-    html += `<div class="matchup-card${selectedGame===g.id?' selected':''}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+    const champRisk = riskLevel(detectUpsetRisk(g.t1, g.t2));
+    const champCardCls = champRisk === "high" ? " risk-high" : champRisk === "med" ? " risk-med" : "";
+    html += `<div class="matchup-card${selectedGame===g.id?' selected':''}${champCardCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
       ${teamSlot(g.t1,g,winner)}
       <div class="divider"></div>
       ${teamSlot(g.t2,g,winner)}
+      ${riskFooterHTML(g.t1, g.t2)}
     </div></div>`;
     pane.innerHTML = html;
     return;
@@ -2324,12 +2586,16 @@ function renderBracket() {
       <div style="text-align:center;margin-bottom:16px;color:var(--accent);font-size:1.1rem;font-weight:700">🏟 FINAL FOUR — San Antonio, TX — April 5, 2026</div>`;
     games.forEach(g => {
       const winner = picks[g.id];
+      const rFlags = detectUpsetRisk(g.t1, g.t2);
+      const rLvl = riskLevel(rFlags);
+      const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
       html += `<div style="margin-bottom:12px">
         <div style="font-size:.75rem;color:#556;margin-bottom:4px;font-weight:700">${g.region}</div>
-        <div class="matchup-card${selectedGame===g.id?' selected':''}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
           ${teamSlot(g.t1,g,winner)}
           <div class="divider"></div>
           ${teamSlot(g.t2,g,winner)}
+          ${riskFooterHTML(g.t1, g.t2)}
         </div></div>`;
     });
     html += `</div>`;
@@ -2349,11 +2615,15 @@ function renderBracket() {
       <div>`;
     regionGames.forEach(g => {
       const winner = picks[g.id];
+      const rFlags = detectUpsetRisk(g.t1, g.t2);
+      const rLvl = riskLevel(rFlags);
+      const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
       html += `<div style="margin-bottom:6px;max-width:240px">
-        <div class="matchup-card${selectedGame===g.id?' selected':''}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
           ${teamSlot(g.t1,g,winner)}
           <div class="divider"></div>
           ${teamSlot(g.t2,g,winner)}
+          ${riskFooterHTML(g.t1, g.t2)}
         </div>
       </div>`;
     });
@@ -2399,7 +2669,7 @@ function showAnalysis(game) {
     return;
   }
 
-  const c = composite(game.t1, game.t2);
+  const c = composite(game.t1, game.t2, game.id);
   const c2 = Math.round((100-c.comp)*10)/10;
 
   const factors = [
@@ -2515,12 +2785,13 @@ function showAnalysis(game) {
     </div>
 
     <div class="prob-section">
-      <div class="prob-title">⚡ COMPOSITE WIN PROBABILITY</div>
+      <div class="prob-title">⚡ COMPOSITE WIN PROBABILITY${c.adjusted ? ' <span style="color:#f5a623;font-size:.65rem;font-weight:400">(adjusted)</span>' : ''}</div>
       <div class="composite-bar-wrap">
         <div class="composite-bar-t1" style="width:${c.comp}%">${c.comp>=20?c.comp+'%':''}</div>
         <div class="composite-bar-t2" style="width:${c2}%">${c2>=20?c2+'%':''}</div>
       </div>
       <div class="prob-label">← ${game.t1} ${c.comp}% &nbsp;|&nbsp; ${game.t2} ${c2}% →</div>
+      ${c.adjusted ? `<div style="font-size:.62rem;color:#f5a623;text-align:center;margin-top:3px">🎚 Manual override: ${c.adjOffset > 0 ? '+' : ''}${c.adjOffset}% applied · base model: ${c.rawComp}%</div>` : ''}
     </div>
 
     <div style="margin-bottom:10px">
@@ -2535,6 +2806,8 @@ function showAnalysis(game) {
       <div style="margin-top:5px;color:#556;font-size:.68rem">Seed history: ${histFav} wins ${histPct.toFixed(0)}% of R64 games as ${lowerSeed}-seed</div>
     </div>
 
+    ${riskSectionHTML(game.t1, game.t2)}
+    ${adjSectionHTML(game.id, game.t1, game.t2)}
     ${pickBtns}
     ${nextOppHTML}
   </div>`;
