@@ -187,6 +187,90 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 .wm-btn.normalize{background:#7b2d8b;color:#fff}
 .wm-btn.wm-cancel{background:#1a2f47;color:#aaa;border:1px solid #2a4a6a}
 
+/* ── View Bracket / Print buttons ── */
+.view-btn{padding:8px 10px;background:#1a2f47;color:#9bb;border:1px solid #2a4a6a;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:600;transition:background .15s;-webkit-tap-highlight-color:transparent;min-height:36px;white-space:nowrap}
+.view-btn:hover{background:#243e5c;color:var(--accent)}
+.vb-long{display:inline}.vb-short{display:none}
+
+/* ── Full Bracket Modal Overlay ── */
+.fb-overlay{position:fixed;inset:0;z-index:3000;background:#0b1522;display:none;flex-direction:column;overflow:hidden}
+.fb-overlay.open{display:flex}
+.fb-modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:linear-gradient(135deg,#0d1b2a,#1a3a5c);border-bottom:2px solid var(--accent);flex-shrink:0;gap:8px}
+.fb-modal-hdr h2{color:var(--accent);font-size:.9rem;font-weight:700;white-space:nowrap;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.fb-modal-btns{display:flex;gap:6px;flex-shrink:0}
+.fb-mbtn{padding:7px 12px;border:none;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:700;min-height:36px;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.fb-mbtn.fb-close{background:#1a2f47;color:#aaa;border:1px solid #2a4060}
+.fb-mbtn.fb-print{background:var(--accent);color:#000}
+.fb-mbtn:active{transform:scale(.97)}
+.fb-modal-body{flex:1;overflow:auto;padding:10px 8px;-webkit-overflow-scrolling:touch}
+
+/* ── Bracket structure ──
+   Core trick: all round-columns share the SAME height.
+   justify-content:space-around distributes games so R32 game 1
+   sits exactly between R64 games 1+2, R32 game 2 between 3+4, etc. */
+.fb-outer{min-width:520px}
+.fb-region{margin-bottom:14px}
+.fb-rlabel{font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:3px;margin-bottom:4px;letter-spacing:.06em;display:inline-block}
+.fb-rounwrap{display:flex;gap:2px;align-items:flex-start}
+.fb-col-wrap{display:flex;flex-direction:column}
+.fb-col-label{font-size:.54rem;color:#334;text-align:center;padding:0 0 2px;letter-spacing:.08em;font-weight:700;height:13px;flex-shrink:0}
+.fb-col{display:flex;flex-direction:column;justify-content:space-around;flex-shrink:0}
+.fb-slot{display:flex;align-items:center;justify-content:center}
+
+/* Game card */
+.fb-card{background:#1a2f47;border-radius:4px;border:1px solid #1e3d5c;overflow:hidden;width:118px}
+.fb-card-tbd{width:118px;height:36px;display:flex;align-items:center;justify-content:center;font-size:.58rem;color:#2a4060;background:#131f30;border-radius:4px;border:1px dashed #1e3d5c}
+.fb-team{display:flex;align-items:center;gap:3px;padding:3px 5px;font-size:.64rem;min-height:17px;overflow:hidden}
+.fb-team.fb-win{background:#0e3020;font-weight:700;color:#4fc3a1}
+.fb-team.fb-lose{opacity:.3}
+.fb-s{font-size:.57rem;color:#667;min-width:13px;text-align:right;flex-shrink:0}
+.fb-tn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.fb-fdiv{height:1px;background:#1e3d5c}
+
+/* Final Four + Championship */
+.fb-finals{margin-top:10px;padding:10px;background:#131f30;border-radius:8px;border:1px solid #1a3a5c}
+.fb-finals-hdr{font-size:.65rem;color:#556;font-weight:700;text-align:center;letter-spacing:.1em;margin-bottom:8px;text-transform:uppercase}
+.fb-finals-row{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap}
+.fb-ff-item{text-align:center}
+.fb-ff-label{font-size:.58rem;color:#445;margin-bottom:3px;font-weight:700;letter-spacing:.06em}
+.fb-champ-box{text-align:center;padding:10px 14px;background:linear-gradient(135deg,#1a3a10,#2a1a00);border-radius:8px;border:2px solid var(--accent);min-width:130px}
+.fb-champ-title{font-size:.62rem;color:var(--accent);font-weight:700;letter-spacing:.1em;margin-bottom:6px}
+.fb-champ-winner{font-size:1rem;font-weight:700;color:#fff;padding:4px 0;line-height:1.2}
+.fb-champ-sub{font-size:.6rem;color:#778;margin-top:3px}
+.fb-champ-tbd{font-size:.65rem;color:#334;padding:8px 0}
+
+/* Print media query — only shows bracket overlay content */
+@media print{
+  body>*:not(#fbOverlay){display:none!important}
+  #fbOverlay{position:static!important;display:block!important;background:#fff!important}
+  .fb-modal-hdr{display:none!important}
+  .fb-modal-body{overflow:visible!important;height:auto!important;max-height:none!important}
+  @page{size:landscape;margin:.35in}
+  .fb-outer{min-width:auto!important}
+  .fb-team{color:#111!important}
+  .fb-team.fb-win{background:#d4edda!important;color:#155724!important}
+  .fb-team.fb-lose{opacity:.45!important}
+  .fb-s{color:#555!important}
+  .fb-card{border:1px solid #ccc!important;background:#f8f8f8!important}
+  .fb-fdiv{background:#ddd!important}
+  .fb-rlabel{color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fb-col-label{color:#555!important}
+  .fb-finals{background:#f5f5f5!important;border:1px solid #ccc!important}
+  .fb-finals-hdr,.fb-ff-label{color:#333!important}
+  .fb-champ-box{background:#fffde7!important;border:2px solid #f9a825!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fb-champ-title{color:#e65100!important}
+  .fb-champ-winner,.fb-champ-sub{color:#111!important}
+  .fb-card-tbd{color:#999!important;border-color:#ddd!important}
+}
+
+/* Mobile tweaks for view-btn and fb- */
+@media(max-width:767px){
+  .vb-long{display:none}
+  .vb-short{display:inline}
+  .fb-modal-hdr h2{font-size:.8rem}
+  .fb-mbtn{padding:7px 10px;font-size:.75rem}
+}
+
 /* ── Misc ── */
 .prob-label{font-size:.7rem;color:#556;text-align:center;margin-top:2px}
 .champion-display{padding:16px;text-align:center;background:linear-gradient(135deg,#1a3a10,#2a1a00);border-radius:8px;margin-bottom:12px}
@@ -269,8 +353,10 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
       <div class="legend-item" style="margin-left:6px;border-left:1px solid #2a4060;padding-left:10px"><span style="color:#ff7070;font-size:.75rem">🔺</span> High risk</div>
       <div class="legend-item"><span style="color:#f5a623;font-size:.75rem">⚠️</span> Upset flag</div>
     </div>
-    <button class="weights-btn" onclick="openWeights()">⚙ Weights</button>
-    <button class="reset-btn" onclick="resetBracket()">↺ Reset</button>
+    <button class="view-btn" onclick="showFullBracket()">📋 <span class="vb-long">My Bracket</span><span class="vb-short">Bracket</span></button>
+    <button class="view-btn" onclick="quickPrintBracket()" style="background:#1a3a18;color:#6fc;border-color:#2a6a2a">🖨 <span class="vb-long">Print</span></button>
+    <button class="weights-btn" onclick="openWeights()">⚙ <span class="vb-long">Weights</span></button>
+    <button class="reset-btn" onclick="resetBracket()">↺</button>
   </div>
 </header>
 
@@ -310,6 +396,20 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
       <button class="wm-btn normalize" onclick="normalizeWeights()">Auto-Balance</button>
       <button class="wm-btn apply" id="applyWeightsBtn" onclick="applyWeights()">Apply</button>
     </div>
+  </div>
+</div>
+
+<!-- Full Bracket View Modal -->
+<div class="fb-overlay" id="fbOverlay">
+  <div class="fb-modal-hdr">
+    <h2>🏀 Jimmy Liddar's 2026 Bracket</h2>
+    <div class="fb-modal-btns">
+      <button class="fb-mbtn fb-print" onclick="doPrintBracket()">🖨 <span class="vb-long">Print</span></button>
+      <button class="fb-mbtn fb-close" onclick="closeFullBracket()">✕ Close</button>
+    </div>
+  </div>
+  <div class="fb-modal-body" id="fbModalBody">
+    <!-- populated by showFullBracket() -->
   </div>
 </div>
 
@@ -3030,6 +3130,129 @@ function resetBracket() {
   renderBracket();
   document.getElementById("analysisPane").innerHTML = '<div class="ap-placeholder"><h3>← Select Any Matchup</h3><p>Click a game to analyze it. All picks cleared.</p></div>';
 }
+
+// ── Full Bracket View ─────────────────────────────────────────────────────────
+
+function fbTeamRow(name, gameId) {
+  if (!name) return `<div class="fb-team"><span class="fb-s">?</span><span class="fb-tn" style="color:#2a4060">TBD</span></div>`;
+  const t   = getTeam(name);
+  const seed = t ? t.seed : '?';
+  const w   = picks[gameId];
+  const isW = w === name, isL = w && w !== name;
+  const injSev = getTopInjurySeverity(name);
+  const injMark = (injSev === 'critical' || injSev === 'high') ? ' 🩹' : '';
+  return `<div class="fb-team ${isW?'fb-win':''} ${isL?'fb-lose':''}">
+    <span class="fb-s">${seed}</span><span class="fb-tn">${name}${injMark}</span>
+  </div>`;
+}
+
+function fbCard(g) {
+  if (!g || (!g.t1 && !g.t2)) return `<div class="fb-card-tbd">TBD</div>`;
+  // Add border tint if high upset risk
+  const rLvl = riskLevel(detectUpsetRisk(g.t1 || '', g.t2 || ''));
+  const bCls = rLvl === 'high' ? ' style="border-color:#8b2020"' : rLvl === 'med' ? ' style="border-color:#7a5200"' : '';
+  return `<div class="fb-card"${bCls}>
+    ${fbTeamRow(g.t1, g.id)}
+    <div class="fb-fdiv"></div>
+    ${fbTeamRow(g.t2, g.id)}
+  </div>`;
+}
+
+function buildBracketViewHTML() {
+  const ROW_H    = 42;    // px per R64 game slot
+  const REG_H    = 8 * ROW_H; // = 336px per region
+  const COL_W    = 120;   // px per round column (matches fb-card width + 2px padding)
+  const roundLabels = ['R64','R32','S16','E8'];
+  const regionColors = { East:'var(--east)', West:'var(--west)', Midwest:'var(--midwest)', South:'var(--south)' };
+
+  let html = `<div class="fb-outer">`;
+
+  for (const region of REGIONS) {
+    const bgColor = regionColors[region] || '#555';
+    html += `<div class="fb-region">
+      <div class="fb-rlabel" style="background:${bgColor}">${region} Region</div>
+      <div class="fb-rounwrap">`;
+
+    for (let r = 0; r <= 3; r++) {
+      const games = getAllGamesForRound(r).filter(g => g.region === region);
+      html += `<div class="fb-col-wrap">
+        <div class="fb-col-label">${roundLabels[r]}</div>
+        <div class="fb-col" style="height:${REG_H}px;width:${COL_W}px">
+          ${games.map(g => `<div class="fb-slot">${fbCard(g)}</div>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  // Final Four + Championship
+  const ffGames  = getAllGamesForRound(4);
+  const champGame = getAllGamesForRound(5)[0];
+  const champWin  = champGame ? picks[champGame.id] : null;
+  const champTeam = champWin ? getTeam(champWin) : null;
+
+  html += `<div class="fb-finals">
+    <div class="fb-finals-hdr">🏟 Final Four & Championship — San Antonio · Apr 5-6 2026</div>
+    <div class="fb-finals-row">
+      ${ffGames.map(g => `<div class="fb-ff-item">
+        <div class="fb-ff-label">${g.region}</div>
+        ${fbCard(g)}
+      </div>`).join('')}
+      <div class="fb-champ-box">
+        <div class="fb-champ-title">🏆 NATIONAL CHAMPION</div>
+        ${champWin
+          ? `<div class="fb-champ-winner">${champWin}</div>
+             <div class="fb-champ-sub">${champTeam ? `#${champTeam.seed} seed · ${champTeam.conf} · ${champTeam.rec}` : ''}</div>`
+          : (champGame && (champGame.t1 || champGame.t2)
+              ? fbCard(champGame)
+              : `<div class="fb-champ-tbd">Complete picks to reveal</div>`)}
+      </div>
+    </div>
+  </div>`;
+
+  html += `</div>`;
+  return html;
+}
+
+function showFullBracket() {
+  document.getElementById('fbModalBody').innerHTML = buildBracketViewHTML();
+  document.getElementById('fbOverlay').classList.add('open');
+  // iOS Safari body-scroll lock
+  const sy = window.scrollY;
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${sy}px`;
+  document.body.style.width = '100%';
+  document.body.dataset.fbSy = sy;
+}
+
+function closeFullBracket() {
+  document.getElementById('fbOverlay').classList.remove('open');
+  const sy = parseInt(document.body.dataset.fbSy || '0');
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.width = '';
+  window.scrollTo(0, sy);
+}
+
+// Print from inside the modal (modal must already be open)
+function doPrintBracket() {
+  // Ensure body content is populated before printing
+  if (!document.getElementById('fbOverlay').classList.contains('open')) {
+    document.getElementById('fbModalBody').innerHTML = buildBracketViewHTML();
+    document.getElementById('fbOverlay').classList.add('open');
+  }
+  window.print();
+}
+
+// Print directly from header button — opens modal first, then prints
+function quickPrintBracket() {
+  showFullBracket();
+  // Small delay so the modal renders before the print dialog opens
+  setTimeout(() => window.print(), 350);
+}
+
+// ── End Full Bracket View ──────────────────────────────────────────────────────
 
 // Init
 renderBracket();
