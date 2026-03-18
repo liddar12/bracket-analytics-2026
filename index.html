@@ -2302,6 +2302,37 @@ function detectUpsetRisk(t1name, t2name) {
     });
   }
 
+  // FLAG 7: Injury Impact on Favorite — key player(s) confirmed OUT
+  // This flag fires when the favored team's efficiency stats were built with a player
+  // who is no longer available — the model is using "healthy" numbers for a depleted roster
+  const favInjSev = getTopInjurySeverity(favName);
+  const favInj = getTeamInjuries(favName).filter(i => i.status === "OUT" || i.status === "OUT (R1)");
+  if (favInjSev === "critical" && favInj.length) {
+    const top = favInj[0];
+    const statsStr = top.ppg ? ` (${top.ppg} PPG${top.rpg ? ' / ' + top.rpg + ' RPG' : ''})` : '';
+    flags.push({
+      severity: "high", icon: "🩹", title: "Injury: Star Player Out",
+      desc: `${favName} is missing ${top.player}${statsStr} — ${top.status}. `+
+            `The model's Barthag and KenPom numbers were built on a full healthy roster. `+
+            `${top.note} Consider applying a manual probability adjustment below.`
+    });
+  } else if (favInjSev === "high" && favInj.length) {
+    const top = favInj[0];
+    flags.push({
+      severity: "med", icon: "🩹", title: `Injury: ${top.player} Out`,
+      desc: `${favName} is playing without starting ${top.pos} ${top.player} (${top.status}). `+
+            `${top.note} Model stats don't account for this absence — check roster depth before picking.`
+    });
+  } else if (favInjSev === "moderate") {
+    const qPlayers = getTeamInjuries(favName).filter(i => i.status === "QUESTIONABLE" && (i.severity === "high" || i.severity === "moderate"));
+    if (qPlayers.length) {
+      flags.push({
+        severity: "low", icon: "🩹", title: `Injury Watch: ${qPlayers.map(p=>p.player).join(', ')}`,
+        desc: `${favName} has ${qPlayers.length > 1 ? qPlayers.length + ' players' : qPlayers[0].player} listed as QUESTIONABLE. Check game-time availability reports before finalizing your pick — status may change within 2 hours of tip.`
+      });
+    }
+  }
+
   return flags;
 }
 
@@ -2394,6 +2425,150 @@ function applyAdj(gameId, t1name, t2name, value) {
 function resetAdj(gameId) {
   delete ADJUSTMENTS[gameId];
   if (window._selectedGame) showAnalysis(window._selectedGame);
+}
+
+// ── 2026 NCAA Tournament Injury & Availability Report ──
+// Sources: RotoWire, SportsBettingDime, CBS Sports, NBC Sports, ESPN (March 17-18 2026)
+const INJURIES = {
+  "Texas Tech": [
+    { player:"JT Toppin", pos:"F", role:"starter", injury:"Torn ACL", status:"OUT",
+      severity:"critical", ppg:21.8, rpg:10.8,
+      note:"All-American. 21.8 PPG / 10.8 RPG. Torn ACL Feb 17 — Red Raiders entered tourney on 3-game skid and slid from projected 3-seed to 5-seed. Primary interior threat gone all tournament." }
+  ],
+  "North Carolina": [
+    { player:"Caleb Wilson", pos:"F", role:"starter", injury:"Thumb fracture (surgery)", status:"OUT",
+      severity:"critical", ppg:19.8, rpg:9.4,
+      note:"19.8 PPG / 9.4 RPG. All-ACC first team, projected top-5 NBA pick. Season-ending surgery. Selection committee confirmed Wilson's absence impacted UNC's seeding. Tar Heels went 5-3 without him." },
+    { player:"James Brown", pos:"F", role:"starter", injury:"Foot", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Second starting forward also out. UNC enters the tournament having lost two starters and 30+ combined PPG off their wing rotation." }
+  ],
+  "BYU": [
+    { player:"Richie Saunders", pos:"F", role:"starter", injury:"Knee (season-ending)", status:"OUT",
+      severity:"critical", ppg:null, rpg:null,
+      note:"One of BYU's offensive 'big three' alongside AJ Dybantsa. Season-ending knee injury mid-February. Major scoring and shot-creation gap in their system." },
+    { player:"Dawson Baker", pos:"G", role:"reserve", injury:"Knee", status:"OUT",
+      severity:"low", ppg:null, rpg:null, note:"Backup guard depth loss." }
+  ],
+  "Duke": [
+    { player:"Caleb Foster", pos:"G", role:"starter", injury:"Broken foot", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Starting guard and primary ball handler. Out for first weekend — may return if Blue Devils advance to Sweet 16+. Duke's depth moderates impact but the PG rotation is thinned." },
+    { player:"Patrick Ngongba II", pos:"C", role:"reserve", injury:"Foot soreness", status:"QUESTIONABLE",
+      severity:"low", ppg:null, rpg:null,
+      note:"'Very unlikely' per coach Scheyer for opener. Backup center." }
+  ],
+  "Kentucky": [
+    { player:"Jaland Lowe", pos:"G", role:"starter", injury:"Shoulder", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Primary point guard and offensive facilitator. Loss directly compounds Kentucky's Trapezoid Fail risk flag — they already have a soft bilateral efficiency profile." }
+  ],
+  "Alabama": [
+    { player:"Aden Holloway", pos:"G", role:"starter", injury:"Suspended (felony arrest)", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"2nd leading scorer. Non-injury suspension — confirmed unavailable with no return path. Coach Oats stated the team is preparing to play without him all tournament." }
+  ],
+  "Michigan St.": [
+    { player:"Divine Ugochukwu", pos:"G", role:"starter", injury:"Foot", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Starting guard and key offensive piece. Reduces scoring options and on-ball creation depth." }
+  ],
+  "Louisville": [
+    { player:"Mikel Brown Jr.", pos:"G", role:"starter", injury:"Back", status:"OUT (R1)",
+      severity:"high", ppg:null, rpg:null,
+      note:"Star freshman guard — confirmed out vs South Florida (R64). Possible return if Louisville reaches Sweet 16. Model stats reflect full-season numbers with him healthy." }
+  ],
+  "Vanderbilt": [
+    { player:"Frankie Collins", pos:"G", role:"starter", injury:"Knee", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Primary floor general and playmaker. Vanderbilt loses their chief facilitator for the entire tournament — alters their half-court execution fundamentally." }
+  ],
+  "Texas A&M": [
+    { player:"Mackenzie Mgbako", pos:"F", role:"starter", injury:"Foot", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Key starting forward. A&M loses a primary wing scorer and athletic mismatch option." }
+  ],
+  "Nebraska": [
+    { player:"Connor Essegian", pos:"G", role:"starter", injury:"Ankle", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Starting guard and primary three-point threat. Nebraska loses their spacing anchor and perimeter scoring." }
+  ],
+  "Connecticut": [
+    { player:"Silas Demary Jr.", pos:"G", role:"starter", injury:"Ankle", status:"QUESTIONABLE",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Starter. Ankle injuries limit lateral quickness — critical for UConn's defensive pressure system. Watch for game-time reports." },
+    { player:"Jaylin Stewart", pos:"F", role:"starter", injury:"Knee", status:"QUESTIONABLE",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Two starters questionable creates real lineup uncertainty. UConn's championship pedigree masks depth concerns if both miss time." }
+  ],
+  "UCLA": [
+    { player:"Donovan Dent", pos:"G", role:"starter", injury:"Calf strain", status:"QUESTIONABLE",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Primary ball handler. Calf strains limit first-step explosiveness and on-ball defense — both central to UCLA's style." },
+    { player:"Tyler Bilodeau", pos:"F", role:"reserve", injury:"Knee", status:"QUESTIONABLE",
+      severity:"low", ppg:null, rpg:null, note:"Rotation piece." }
+  ],
+  "Ohio St.": [
+    { player:"Taison Chatman", pos:"G", role:"starter", injury:"Groin", status:"QUESTIONABLE",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Starting guard. Groin strains limit explosiveness and defensive intensity in ways that don't show on the box score but affect live game flow significantly." }
+  ],
+  "Gonzaga": [
+    { player:"Braden Huff", pos:"F", role:"starter", injury:"Knee", status:"OUT",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Out since Jan 15 — Gonzaga's efficiency stats already reflect this absence across 7+ weeks. Lower surprise value than a recent injury, but still a real depth loss." }
+  ],
+  "Villanova": [
+    { player:"Matthew Hodge", pos:"F", role:"reserve", injury:"ACL (season-ending)", status:"OUT",
+      severity:"moderate", ppg:9.2, rpg:null,
+      note:"9.2 PPG reserve. Meaningful depth loss — Villanova will lean on less-tested players in close late-game situations." }
+  ],
+  "Illinois":    [{ player:"Jason Jakstys",  pos:"C", role:"reserve",  injury:"Shoulder",  status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Backup center." }],
+  "Missouri":    [{ player:"Annor Boateng",  pos:"G", role:"reserve",  injury:"Leg",       status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Rotation guard." }],
+  "Tennessee":   [{ player:"Cade Phillips",  pos:"F", role:"reserve",  injury:"Shoulder",  status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Bench forward." }],
+  "SMU":         [{ player:"B.J. Edwards",   pos:"G", role:"reserve",  injury:"Ankle",     status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Backup guard." }],
+  "St. John's":  [{ player:"Casper Pohto",   pos:"G", role:"reserve",  injury:"Hip",       status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Rotation guard." }],
+  "Iowa St.":    [{ player:"Xzavion Mitchell",pos:"F",role:"reserve",  injury:"Undisclosed",status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Rotation piece." }],
+  "Arkansas":    [{ player:"Karter Knox",    pos:"F", role:"reserve",  injury:"Knee",      status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Rotation forward." }],
+  "Michigan":    [{ player:"LJ Cason",       pos:"G", role:"reserve",  injury:"Torn ACL",  status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Rotational guard." }],
+  "Wisconsin":   [{ player:"Nolan Winter",   pos:"F", role:"reserve",  injury:"Ankle",     status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Reserve forward." }]
+};
+
+function getTeamInjuries(teamName) { return INJURIES[teamName] || []; }
+
+function getTopInjurySeverity(teamName) {
+  const inj = getTeamInjuries(teamName);
+  const confirmed = inj.filter(i => i.status === "OUT" || i.status === "OUT (R1)");
+  if (confirmed.some(i => i.severity === "critical"))  return "critical";
+  if (confirmed.some(i => i.severity === "high"))      return "high";
+  if (inj.some(i => i.severity === "critical" || i.severity === "high")) return "moderate";
+  if (inj.some(i => i.severity === "moderate"))        return "moderate";
+  if (inj.length > 0)                                  return "low";
+  return "clean";
+}
+
+function injuryBlockHTML(teamName) {
+  const inj = getTeamInjuries(teamName);
+  if (!inj.length) return '';
+  const sevColor = { critical:"#ff7070", high:"#f5a623", moderate:"#7fb8ff", low:"#667" };
+  const rows = inj.map(i => {
+    const sc = sevColor[i.severity] || "#667";
+    const statsStr = i.ppg ? ` · ${i.ppg} PPG${i.rpg ? ' / '+i.rpg+' RPG' : ''}` : '';
+    return `<div style="display:flex;gap:6px;margin-bottom:5px;font-size:.68rem;align-items:flex-start">
+      <div style="min-width:42px;font-weight:700;padding:1px 5px;background:#1a1a2a;border-radius:3px;color:${sc};font-size:.58rem;text-align:center;flex-shrink:0;margin-top:1px">${i.status}</div>
+      <div>
+        <div style="font-weight:700;color:#ccc">${i.player} <span style="color:#556;font-weight:400">${i.pos} · ${i.role}${statsStr}</span></div>
+        <div style="color:#667;margin-top:1px">${i.injury}</div>
+        <div style="color:#778;margin-top:2px;line-height:1.4">${i.note}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const topSev = getTopInjurySeverity(teamName);
+  const hdrColor = topSev === "critical" ? "#ff7070" : topSev === "high" ? "#f5a623" : "#7fb8ff";
+  return `<div style="margin-top:7px;background:#12111a;border-radius:5px;border:1px solid #2a1a3a;overflow:hidden">
+    <div style="padding:4px 8px;font-size:.62rem;font-weight:700;color:${hdrColor};background:#1a1228;letter-spacing:.06em">🩹 INJURY REPORT</div>
+    <div style="padding:6px 8px">${rows}</div>
+  </div>`;
 }
 
 // ── Weights editor functions ──
@@ -2642,9 +2817,15 @@ function teamSlot(name, game, winner) {
   if (isWinner) cls = 'winner';
   if (isLoser)  cls = 'loser';
   const ffNote = FF_NOTES[name] ? ` title="${FF_NOTES[name]}"` : '';
+  // Injury badge: show 🩹 if team has confirmed OUT starters/key players
+  const injSev = getTopInjurySeverity(name);
+  const injBadge = (injSev === "critical" || injSev === "high")
+    ? `<span style="font-size:.62rem;opacity:.9;flex-shrink:0" title="Injury alert — tap to see details">🩹</span>`
+    : '';
   return `<div class="team-slot ${cls}"${ffNote}>
     <span class="seed-badge">${seed}</span>
     <span class="tname">${name}${FF_NOTES[name]?'*':''}</span>
+    ${injBadge}
     <div class="trap-dot ${tc}"></div>
   </div>`;
 }
@@ -2711,6 +2892,7 @@ function showAnalysis(game) {
         <div class="stat-item">3PT% <span>${t.three}%</span></div>
       </div>
       ${t.profile && t.profile!=='—' ? `<div style="font-size:.63rem;color:#889;margin-top:5px;font-style:italic">${t.profile}</div>` : ''}
+      ${injuryBlockHTML(tname)}
     </div>`;
   }
 
