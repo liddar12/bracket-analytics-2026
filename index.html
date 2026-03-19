@@ -3407,17 +3407,37 @@ let LIVE_SCORES = {};
 let _lsFetchTick = 0;
 let _lsLastUpdate = 0;
 
+// ── localStorage cache for FINAL results — persists across day boundaries ──
+const _LS_KEY = 'ncaa26_finals_v2';
+function _loadCachedFinals(){
+  try{ return JSON.parse(localStorage.getItem(_LS_KEY)||'{}'); }
+  catch(e){ return {}; }
+}
+function _saveCachedFinals(scores){
+  try{
+    const toSave={};
+    for(const [k,v] of Object.entries(scores)){
+      if(v.status==='STATUS_FINAL') toSave[k]=v;
+    }
+    localStorage.setItem(_LS_KEY, JSON.stringify(toSave));
+  } catch(e){}
+}
+
 async function fetchLiveScores(){
   const tick = ++_lsFetchTick;
   try {
+    // Restore cached finals first — they persist even as ESPN rolls off old dates
+    const cached = _loadCachedFinals();
+
     const today = new Date();
     const dates = [];
-    for(let i=-1; i<=1; i++){
+    // Fetch ±2 days to cover games straddling midnight + early/late rounds
+    for(let i=-2; i<=1; i++){
       const d = new Date(today);
       d.setDate(d.getDate()+i);
       dates.push(d.toISOString().slice(0,10).replace(/-/g,''));
     }
-    const all = {};
+    const fresh = {};
     for(const dt of dates){
       let data;
       try{
@@ -3437,7 +3457,7 @@ async function fetchLiveScores(){
           const opp   = competitors.find(c=>c!==cmp);
           const bName = _espnToBracket(short, full);
           if(!bName) continue;
-          all[bName] = {
+          fresh[bName] = {
             score:    parseInt(cmp.score||'0'),
             oppScore: parseInt(opp?.score||'0'),
             status: st, clock, period, date,
@@ -3447,8 +3467,11 @@ async function fetchLiveScores(){
       }
     }
     if(tick === _lsFetchTick){
-      LIVE_SCORES = all;
+      // Merge: cached finals fill historical gaps; fresh data takes priority for live games
+      LIVE_SCORES = {...cached, ...fresh};
+      _saveCachedFinals(LIVE_SCORES);
       _lsLastUpdate = Date.now();
+      applyLiveResultsToPicks();
       renderBracket();
     }
   } catch(e){ console.warn('fetchLiveScores:', e); }
@@ -3472,17 +3495,70 @@ function getScoreHTML(name){
   return '';
 }
 
+// ── Auto-advance confirmed winners into picks[] ──────────────────────────────
+// Resolves winner for a game from LIVE_SCORES — returns team name or null
+function _winnerFromScores(g){
+  const d1 = LIVE_SCORES[g.t1], d2 = LIVE_SCORES[g.t2];
+  const f1 = d1?.status==='STATUS_FINAL', f2 = d2?.status==='STATUS_FINAL';
+  if(!f1 && !f2) return null;
+  // Prefer explicit isWinner=true flag
+  if(d1?.isWinner===true) return g.t1;
+  if(d2?.isWinner===true) return g.t2;
+  // Infer from loser flag
+  if(f1 && d1?.isWinner===false) return g.t2;
+  if(f2 && d2?.isWinner===false) return g.t1;
+  // Infer from score if both available and final
+  if(f1 && f2 && d1.score !== d2.score) return d1.score > d2.score ? g.t1 : g.t2;
+  return null;
+}
+
+// Write confirmed FINAL winners into picks[] so they cascade to the next round.
+// Only sets entries where both team names are known real teams (not "Winner of…" placeholders).
+function applyLiveResultsToPicks(){
+  // Process rounds 0–3 in order so each round's picks feed into the next
+  for(let round=0; round<=3; round++){
+    const games = getAllGamesForRound(round);
+    for(const g of games){
+      if(!TEAMS[g.t1] || !TEAMS[g.t2]) continue; // skip unresolved placeholder slots
+      const winner = _winnerFromScores(g);
+      if(winner) picks[g.id] = winner;
+    }
+  }
+  // Final Four — only if both slots resolved to real teams
+  const ffGames = buildFFGames();
+  for(const g of ffGames){
+    if(!TEAMS[g.t1] || !TEAMS[g.t2]) continue;
+    const winner = _winnerFromScores(g);
+    if(winner) picks[g.id] = winner;
+  }
+  // Championship
+  const champGames = buildChampGame();
+  for(const g of champGames){
+    if(!TEAMS[g.t1] || !TEAMS[g.t2]) continue;
+    const winner = _winnerFromScores(g);
+    if(winner) picks[g.id] = winner;
+  }
+}
+
 function isUpsetConfirmed(t1, t2, gameId){
-  // Game must be final and both teams known
+  // Need at least one team confirmed FINAL (relaxed — name mapping may miss one side)
   const d1 = LIVE_SCORES[t1], d2 = LIVE_SCORES[t2];
-  if(!d1 || !d2 || d1.status !== 'STATUS_FINAL') return false;
-  // Model must have flagged HIGH upset risk
+  const anyFinal = (d1?.status==='STATUS_FINAL') || (d2?.status==='STATUS_FINAL');
+  if(!anyFinal) return false;
+  // Must have flagged HIGH upset risk via the model
   if(riskLevel(detectUpsetRisk(t1, t2)) !== 'high') return false;
-  // Identify underdog: whoever the composite model gave < 50% to
+  // Underdog = whoever composite model gave <50% win probability to
   const c = composite(t1, t2, gameId);
-  const underdog = c.comp >= 0.5 ? t2 : t1;
-  const ud = LIVE_SCORES[underdog];
-  return !!(ud && ud.isWinner === true);
+  const [fav, dog] = c.comp >= 0.5 ? [t1, t2] : [t2, t1];
+  const dDog = LIVE_SCORES[dog], dFav = LIVE_SCORES[fav];
+  // Crown fires if underdog won — confirmed via explicit flag OR favorite's loss
+  if(dDog?.isWinner === true) return true;
+  if(dFav?.isWinner === false && dFav?.status === 'STATUS_FINAL') return true;
+  // Infer from score differential if both available
+  if(dDog && dFav && dDog.status==='STATUS_FINAL'){
+    return dDog.score > dFav.score;
+  }
+  return false;
 }
 
 function gameStatusBarHTML(t1, t2, gameId){
@@ -3505,6 +3581,9 @@ function gameStatusBarHTML(t1, t2, gameId){
 }
 
 // ── Init
+// Restore cached finals immediately so bracket shows confirmed results on first paint
+LIVE_SCORES = _loadCachedFinals();
+applyLiveResultsToPicks();
 renderBracket();
 fetchLiveScores();
 setInterval(fetchLiveScores, 60000);
