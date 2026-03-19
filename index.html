@@ -336,6 +336,19 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
   .wm-btns{justify-content:stretch}
   .wm-btn{flex:1;text-align:center}
 }
+/* ── Live Score Styles ── */
+.sc-score{margin-left:auto;font-size:.78rem;font-weight:700;padding:1px 5px;border-radius:3px;min-width:22px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.sc-win{color:#4fc3a1}
+.sc-loss{color:#546e7a}
+.sc-live{color:#ff9090}
+.gsb{font-size:.58rem;font-weight:700;letter-spacing:.07em;padding:3px 8px;border-top:1px solid #1e3d5c;text-align:center;display:flex;align-items:center;justify-content:center;gap:4px}
+.gsb-final{background:#0d1b2a;color:#556}
+.gsb-live{background:#1a0808;color:#ff9090}
+.gsb-sched{background:#091520;color:#5ab4e0}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ff5050;flex-shrink:0}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
+.sc-live,.gsb-live,.live-dot{animation:livepulse 1.4s ease-in-out infinite}
+.score-refresh{font-size:.55rem;color:#334;margin-left:6px;cursor:pointer;user-select:none}
 </style>
 </head>
 <body>
@@ -2925,6 +2938,7 @@ function renderBracket() {
       ${teamSlot(g.t1,g,winner)}
       <div class="divider"></div>
       ${teamSlot(g.t2,g,winner)}
+      ${gameStatusBarHTML(g.t1, g.t2)}
       ${riskFooterHTML(g.t1, g.t2)}
     </div></div>`;
     pane.innerHTML = html;
@@ -2945,6 +2959,7 @@ function renderBracket() {
           ${teamSlot(g.t1,g,winner)}
           <div class="divider"></div>
           ${teamSlot(g.t2,g,winner)}
+          ${gameStatusBarHTML(g.t1, g.t2)}
           ${riskFooterHTML(g.t1, g.t2)}
         </div></div>`;
     });
@@ -2973,6 +2988,7 @@ function renderBracket() {
           ${teamSlot(g.t1,g,winner)}
           <div class="divider"></div>
           ${teamSlot(g.t2,g,winner)}
+          ${gameStatusBarHTML(g.t1, g.t2)}
           ${riskFooterHTML(g.t1, g.t2)}
         </div>
       </div>`;
@@ -3002,6 +3018,7 @@ function teamSlot(name, game, winner) {
     <span class="tname">${name}${FF_NOTES[name]?'*':''}</span>
     ${injBadge}
     <div class="trap-dot ${tc}"></div>
+    ${getScoreHTML(name)}
   </div>`;
 }
 
@@ -3329,8 +3346,145 @@ function quickPrintBracket() {
 
 // ── End Full Bracket View ──────────────────────────────────────────────────────
 
-// Init
+// ── Live Scores (ESPN public API · 60s auto-refresh · no API key required) ───
+const ESPN_TO_BRACKET = {
+  // Abbreviation / spelling differences ESPN → our bracket
+  "ohio state":"Ohio St.","ohio st":"Ohio St.",
+  "michigan st":"Michigan St.","michigan state":"Michigan St.",
+  "n dakota st":"North Dakota St.","north dakota st":"North Dakota St.","north dakota state":"North Dakota St.",
+  "hawai'i":"Hawaii","hawai\u02BBi":"Hawaii",
+  "mcneese":"McNeese St.",
+  "pennsylvania":"Penn",
+  "uconn":"Connecticut",
+  "n iowa":"Northern Iowa","northern iowa":"Northern Iowa",
+  "utah st":"Utah St.","utah state":"Utah St.",
+  "kennesaw st":"Kennesaw St.","kennesaw state":"Kennesaw St.",
+  "iowa st":"Iowa St.","iowa state":"Iowa St.",
+  "tennessee st":"Tennessee St.","tennessee state":"Tennessee St.",
+  "wright st":"Wright St.","wright state":"Wright St.",
+  "st. john's":"St. John's","st john's":"St. John's","st. johns":"St. John's",
+  "saint mary's":"Saint Mary's","saint marys":"Saint Mary's",
+  "prairie view":"Prairie View A&M","prairie view a&m":"Prairie View A&M",
+  "liu":"LIU","long island":"LIU",
+  "miami (oh)":"Miami OH","miami oh":"Miami OH","miami ohio":"Miami OH",
+  "miami fl":"Miami FL",
+  "cal baptist":"Cal Baptist","california baptist":"Cal Baptist",
+  "south florida":"South Florida",
+  "nc state":"North Carolina","n carolina":"North Carolina",
+  "queens":"Queens",
+};
+
+// Build normalized bracket-name lookup: normKey → canonical name
+function _normN(n){return n.toLowerCase().replace(/[.\u2019'\-()]/g,'').replace(/\s+/g,' ').trim();}
+const _BMAP={};
+(function(){for(const k of Object.keys(TEAMS)){_BMAP[_normN(k)]=k;}})();
+
+function _espnToBracket(short,full){
+  // Normalize variants of "Miami" — ESPN uses same short name for both
+  // Disambiguate by checking full name
+  if(/miami/i.test(short)){
+    if(/ohio/i.test(full)||/\(oh\)/i.test(full)) return "Miami OH";
+    return "Miami FL";
+  }
+  const checks=[short, _normN(short), _normN(full.replace(/\b(Blue Devils?|Wildcats?|Bulldogs?|Bears?|Tigers?|Eagles?|Panthers?|Owls?|Rams?|Lions?|Cowboys?|Longhorns?|Cougars?|Aggies?|Razorbacks?|Gators?|Tar Heels?|Illini|Buckeyes?|Badgers?|Hoosiers?|Hawkeyes?|Volunteers?|Commodores?|Crimson Tide|Cardinals?|Bruins?|Trojans?|Boilermakers?|Spartans?|Wolverines?|Fighting Illini|Hurricanes?|Seminoles?|Demon Deacons?|Hokies?|Cavaliers?|Knights?|Bulls?|Quakers?|Bison|Saints?|Billikens?|Salukis?|Gaels?|Waves?|Broncos?|Tritons?|Highlanders?|Zips?|Flyers?|Pilots?|Roadrunners?|Anteaters?|Falcons?|Racers?|Colonels?|Monarchs?|Dukes?|Mavericks?|Lumberjacks?|Mustangs?|Horned Frogs?|Rebels?|Fighting Hawks?|Runnin|Toreros?|Dons?)\b/gi,'').trim())];
+  for(const c of checks){
+    const lo=c.toLowerCase();
+    if(ESPN_TO_BRACKET[lo]) return ESPN_TO_BRACKET[lo];
+    const norm=_normN(c);
+    if(_BMAP[norm]) return _BMAP[norm];
+  }
+  return null;
+}
+
+let LIVE_SCORES = {};
+let _lsFetchTick = 0;
+let _lsLastUpdate = 0;
+
+async function fetchLiveScores(){
+  const tick = ++_lsFetchTick;
+  try {
+    const today = new Date();
+    const dates = [];
+    for(let i=-1; i<=1; i++){
+      const d = new Date(today);
+      d.setDate(d.getDate()+i);
+      dates.push(d.toISOString().slice(0,10).replace(/-/g,''));
+    }
+    const all = {};
+    for(const dt of dates){
+      let data;
+      try{
+        const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=50&dates=${dt}`);
+        data = await r.json();
+      } catch(e){ continue; }
+      for(const ev of (data.events||[])){
+        const comp = ev.competitions?.[0]; if(!comp) continue;
+        const st   = comp.status?.type?.name || 'STATUS_SCHEDULED';
+        const clock = comp.status?.displayClock || '';
+        const period = comp.status?.period || 0;
+        const date  = comp.date;
+        const competitors = comp.competitors||[];
+        for(const cmp of competitors){
+          const short = cmp.team?.shortDisplayName||'';
+          const full  = cmp.team?.displayName||'';
+          const opp   = competitors.find(c=>c!==cmp);
+          const bName = _espnToBracket(short, full);
+          if(!bName) continue;
+          all[bName] = {
+            score:    parseInt(cmp.score||'0'),
+            oppScore: parseInt(opp?.score||'0'),
+            status: st, clock, period, date,
+            isWinner: cmp.winner === true
+          };
+        }
+      }
+    }
+    if(tick === _lsFetchTick){
+      LIVE_SCORES = all;
+      _lsLastUpdate = Date.now();
+      renderBracket();
+    }
+  } catch(e){ console.warn('fetchLiveScores:', e); }
+}
+
+function _fmtTipoff(isoDate){
+  try{
+    const d = new Date(isoDate);
+    return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',hour12:true})+' ET';
+  } catch{ return ''; }
+}
+
+function getScoreHTML(name){
+  const d = LIVE_SCORES[name]; if(!d) return '';
+  if(d.status==='STATUS_FINAL'){
+    return `<span class="sc-score ${d.isWinner?'sc-win':'sc-loss'}">${d.score}</span>`;
+  }
+  if(d.status==='STATUS_IN_PROGRESS'){
+    return `<span class="sc-score sc-live">${d.score}</span>`;
+  }
+  return '';
+}
+
+function gameStatusBarHTML(t1,t2){
+  const d = LIVE_SCORES[t1]||LIVE_SCORES[t2]; if(!d) return '';
+  if(d.status==='STATUS_FINAL'){
+    return `<div class="gsb gsb-final">FINAL</div>`;
+  }
+  if(d.status==='STATUS_IN_PROGRESS'){
+    const p = d.period===1?'1H': d.period===2?'2H': d.period>2?'OT':'';
+    return `<div class="gsb gsb-live"><span class="live-dot"></span>LIVE&nbsp;·&nbsp;${d.clock}&nbsp;${p}</div>`;
+  }
+  if(d.status==='STATUS_SCHEDULED'){
+    const tip = _fmtTipoff(d.date);
+    return tip ? `<div class="gsb gsb-sched">⏰&nbsp;${tip}</div>` : '';
+  }
+  return '';
+}
+
+// ── Init
 renderBracket();
+fetchLiveScores();
+setInterval(fetchLiveScores, 60000);
 </script>
 </body>
 </html>
