@@ -349,6 +349,10 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
 .sc-live,.gsb-live,.live-dot{animation:livepulse 1.4s ease-in-out infinite}
 .score-refresh{font-size:.55rem;color:#334;margin-left:6px;cursor:pointer;user-select:none}
+.gsb-upset{background:linear-gradient(90deg,#1e1200,#0d1620);color:var(--accent);border-top:1px solid #3a2800;letter-spacing:.04em}
+.matchup-card.upset-confirmed{border-left:3px solid var(--accent) !important}
+@keyframes crownpop{0%{transform:scale(1)}45%{transform:scale(1.3)}100%{transform:scale(1)}}
+.crown-icon{display:inline-block;animation:crownpop .7s ease-out}
 </style>
 </head>
 <body>
@@ -2934,11 +2938,12 @@ function renderBracket() {
     }
     const champRisk = riskLevel(detectUpsetRisk(g.t1, g.t2));
     const champCardCls = champRisk === "high" ? " risk-high" : champRisk === "med" ? " risk-med" : "";
-    html += `<div class="matchup-card${selectedGame===g.id?' selected':''}${champCardCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+    const champUpsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
+    html += `<div class="matchup-card${selectedGame===g.id?' selected':''}${champCardCls}${champUpsetCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
       ${teamSlot(g.t1,g,winner)}
       <div class="divider"></div>
       ${teamSlot(g.t2,g,winner)}
-      ${gameStatusBarHTML(g.t1, g.t2)}
+      ${gameStatusBarHTML(g.t1, g.t2, g.id)}
       ${riskFooterHTML(g.t1, g.t2)}
     </div></div>`;
     pane.innerHTML = html;
@@ -2953,13 +2958,14 @@ function renderBracket() {
       const rFlags = detectUpsetRisk(g.t1, g.t2);
       const rLvl = riskLevel(rFlags);
       const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
+      const ffUpsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
       html += `<div style="margin-bottom:12px">
         <div style="font-size:.75rem;color:#556;margin-bottom:4px;font-weight:700">${g.region}</div>
-        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}${ffUpsetCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
           ${teamSlot(g.t1,g,winner)}
           <div class="divider"></div>
           ${teamSlot(g.t2,g,winner)}
-          ${gameStatusBarHTML(g.t1, g.t2)}
+          ${gameStatusBarHTML(g.t1, g.t2, g.id)}
           ${riskFooterHTML(g.t1, g.t2)}
         </div></div>`;
     });
@@ -2983,12 +2989,13 @@ function renderBracket() {
       const rFlags = detectUpsetRisk(g.t1, g.t2);
       const rLvl = riskLevel(rFlags);
       const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
+      const upsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
       html += `<div style="margin-bottom:6px;max-width:240px">
-        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}${upsetCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
           ${teamSlot(g.t1,g,winner)}
           <div class="divider"></div>
           ${teamSlot(g.t2,g,winner)}
-          ${gameStatusBarHTML(g.t1, g.t2)}
+          ${gameStatusBarHTML(g.t1, g.t2, g.id)}
           ${riskFooterHTML(g.t1, g.t2)}
         </div>
       </div>`;
@@ -3465,9 +3472,25 @@ function getScoreHTML(name){
   return '';
 }
 
-function gameStatusBarHTML(t1,t2){
+function isUpsetConfirmed(t1, t2, gameId){
+  // Game must be final and both teams known
+  const d1 = LIVE_SCORES[t1], d2 = LIVE_SCORES[t2];
+  if(!d1 || !d2 || d1.status !== 'STATUS_FINAL') return false;
+  // Model must have flagged HIGH upset risk
+  if(riskLevel(detectUpsetRisk(t1, t2)) !== 'high') return false;
+  // Identify underdog: whoever the composite model gave < 50% to
+  const c = composite(t1, t2, gameId);
+  const underdog = c.comp >= 0.5 ? t2 : t1;
+  const ud = LIVE_SCORES[underdog];
+  return !!(ud && ud.isWinner === true);
+}
+
+function gameStatusBarHTML(t1, t2, gameId){
   const d = LIVE_SCORES[t1]||LIVE_SCORES[t2]; if(!d) return '';
   if(d.status==='STATUS_FINAL'){
+    if(isUpsetConfirmed(t1, t2, gameId)){
+      return `<div class="gsb gsb-upset"><span class="crown-icon">👑</span>&nbsp;Upset Called&nbsp;·&nbsp;FINAL</div>`;
+    }
     return `<div class="gsb gsb-final">FINAL</div>`;
   }
   if(d.status==='STATUS_IN_PROGRESS'){
