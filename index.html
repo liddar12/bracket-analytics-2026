@@ -2451,9 +2451,10 @@ function detectUpsetRisk(t1name, t2name) {
     });
   }
 
-  // FLAG 4: One-way offensive dominant favorite — elite offense, exposed defense
-  // Auburn 2022, various Kentucky teams: big scorer, can't stop anyone
-  if (fav.kp_off <= 15 && fav.kp_def > 50) {
+  // FLAG 4: One-way offensive dominant favorite — top-20 offense, outside top-50 defense
+  // Auburn 2022, various Kentucky teams, Ohio St. 2026: big scorer, can't stop anyone
+  // Threshold broadened to kp_off <=20: top-20 offense with no defensive balance is a real NIL-era pattern
+  if (fav.kp_off <= 20 && fav.kp_def > 50) {
     flags.push({
       severity: "med", icon: "⚡", title: "One-Way Offense Risk",
       desc: `${favName} is elite offensively (KP Off #${fav.kp_off}) but carries a soft defense `+
@@ -2482,15 +2483,17 @@ function detectUpsetRisk(t1name, t2name) {
     });
   }
 
-  // FLAG 6: Elite defensive underdog — double-digit seed with D30 or better
-  // Oakland 2024 (KP Def solid), Princeton 2023 (top defensive team)
-  if (dog.seed >= 10 && dog.kp_def <= 30) {
+  // FLAG 6: Elite defensive underdog — seed 9 or higher with D30 or better
+  // Threshold broadened to seed>=9: TCU 2026 (seed 9, KP Def #22) is the exact profile.
+  // 9-seeds with elite defense in an 8/9 game are structurally undervalued by the committee.
+  // Oakland 2024 (KP Def solid), Princeton 2023 (top defensive team), TCU 2026 (#22 defense)
+  if (dog.seed >= 9 && dog.kp_def <= 30) {
     flags.push({
       severity: "med", icon: "🧱", title: "Elite Defensive Underdog",
       desc: `${dogName} (#${dog.seed} seed) ranks KP Def #${dog.kp_def} — a top-30 defense `+
             `in a single-elimination game keeps any result on the table. In the NIL era, `+
-            `double-digit seeds with elite defense (Oakland 2024, Princeton 2023) account for `+
-            `a disproportionate share of bracket chaos.`
+            `seeds 9–15 with elite defense (TCU 2026 #22, Oakland 2024, Princeton 2023) `+
+            `account for a disproportionate share of bracket chaos.`
     });
   }
 
@@ -3545,8 +3548,10 @@ function isUpsetConfirmed(t1, t2, gameId){
   const d1 = LIVE_SCORES[t1], d2 = LIVE_SCORES[t2];
   const anyFinal = (d1?.status==='STATUS_FINAL') || (d2?.status==='STATUS_FINAL');
   if(!anyFinal) return false;
-  // Must have flagged HIGH upset risk via the model
-  if(riskLevel(detectUpsetRisk(t1, t2)) !== 'high') return false;
+  // Crown fires for MED or HIGH risk (2+ flags, or any HIGH-severity flag).
+  // LOW = single low-severity flag (e.g. QUESTIONABLE only) — not sufficient for crown.
+  const lvl = riskLevel(detectUpsetRisk(t1, t2));
+  if(lvl === 'clean' || lvl === 'low') return false;
   // Underdog = whoever composite model gave <50% win probability to
   const c = composite(t1, t2, gameId);
   const [fav, dog] = c.comp >= 0.5 ? [t1, t2] : [t2, t1];
