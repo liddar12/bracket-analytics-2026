@@ -2549,10 +2549,12 @@ let currentFilter = 'all'; // 'all' | 'live' | 'upcoming' | 'final'
 
 // ── Game filter helpers ──────────────────────────────────────────────────────
 // Returns 'live' | 'final' | 'upcoming' for a given game
+function _isLiveStatus(st){ return st==='STATUS_IN_PROGRESS'||st==='STATUS_HALFTIME'||st==='STATUS_END_PERIOD'; }
+function _isFinalStatus(st){ return st&&(st==='STATUS_FINAL'||st.startsWith('STATUS_FINAL')); }
 function gameFilterStatus(g) {
   const d1 = LIVE_SCORES[g.t1], d2 = LIVE_SCORES[g.t2];
-  if (d1?.status === 'STATUS_IN_PROGRESS' || d2?.status === 'STATUS_IN_PROGRESS') return 'live';
-  if (d1?.status === 'STATUS_FINAL'       || d2?.status === 'STATUS_FINAL')       return 'final';
+  if (_isLiveStatus(d1?.status) || _isLiveStatus(d2?.status)) return 'live';
+  if (_isFinalStatus(d1?.status) || _isFinalStatus(d2?.status)) return 'final';
   return 'upcoming';
 }
 
@@ -3846,10 +3848,22 @@ const ESPN_TO_BRACKET = {
   "liu":"LIU","long island":"LIU",
   "miami (oh)":"Miami OH","miami oh":"Miami OH","miami ohio":"Miami OH",
   "miami fl":"Miami FL",
-  "cal baptist":"Cal Baptist","california baptist":"Cal Baptist",
+  "cal baptist":"Cal Baptist","california baptist":"Cal Baptist","ca baptist":"Cal Baptist",
   "south florida":"South Florida",
-  "nc state":"North Carolina","n carolina":"North Carolina",
+  "n carolina":"North Carolina","unc":"North Carolina","north carolina tar heels":"North Carolina",
+  "nc state":"North Carolina St.","n.c. state":"North Carolina St.",
+  "vcu":"VCU","virginia commonwealth":"VCU",
+  "ucf":"UCF","central florida":"UCF",
+  "usc":"USC","southern california":"USC",
+  "smu":"SMU","southern methodist":"SMU",
+  "lsu":"LSU","louisiana state":"LSU",
+  "tcu":"TCU","texas christian":"TCU",
+  "byu":"BYU","brigham young":"BYU",
+  "g washington":"George Washington","george washington":"George Washington",
   "queens":"Queens",
+  "high point":"High Point",
+  "saint louis":"Saint Louis",
+  "liu":"LIU",
 };
 
 // Build normalized bracket-name lookup: normKey → canonical name
@@ -3888,10 +3902,20 @@ function _saveCachedFinals(scores){
   try{
     const toSave={};
     for(const [k,v] of Object.entries(scores)){
-      if(v.status==='STATUS_FINAL') toSave[k]=v;
+      if(_isFinalStatus(v.status)) toSave[k]=v; // persist all final variants (OT, etc.)
     }
     localStorage.setItem(_LS_KEY, JSON.stringify(toSave));
   } catch(e){}
+}
+
+// Status priority: higher number = more authoritative.
+// Prevents a SCHEDULED future game from overwriting a FINAL past game for the same team.
+function _stPriority(st){
+  if(!st) return 0;
+  if(st==='STATUS_IN_PROGRESS'||st==='STATUS_HALFTIME'||st==='STATUS_END_PERIOD') return 3;
+  if(st==='STATUS_FINAL'||st.startsWith('STATUS_FINAL')) return 2;
+  if(st==='STATUS_SCHEDULED'||st==='STATUS_PREGAME') return 1;
+  return 0;
 }
 
 async function fetchLiveScores(){
@@ -3902,8 +3926,8 @@ async function fetchLiveScores(){
 
     const today = new Date();
     const dates = [];
-    // Fetch ±2 days to cover games straddling midnight + early/late rounds
-    for(let i=-2; i<=1; i++){
+    // Fetch -2 to +2 days to cover R64/R32 spanning multiple days
+    for(let i=-2; i<=2; i++){
       const d = new Date(today);
       d.setDate(d.getDate()+i);
       dates.push(d.toISOString().slice(0,10).replace(/-/g,''));
@@ -3912,7 +3936,8 @@ async function fetchLiveScores(){
     for(const dt of dates){
       let data;
       try{
-        const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=50&dates=${dt}`);
+        // No groups filter — ensures all tournament games are returned; limit=200 for peak days
+        const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?limit=200&dates=${dt}`);
         data = await r.json();
       } catch(e){ continue; }
       for(const ev of (data.events||[])){
@@ -3928,12 +3953,18 @@ async function fetchLiveScores(){
           const opp   = competitors.find(c=>c!==cmp);
           const bName = _espnToBracket(short, full);
           if(!bName) continue;
-          fresh[bName] = {
+          const incoming = {
             score:    parseInt(cmp.score||'0'),
             oppScore: parseInt(opp?.score||'0'),
             status: st, clock, period, date,
             isWinner: cmp.winner === true
           };
+          // Only overwrite if incoming status is equally or more authoritative.
+          // This prevents SCHEDULED (future R32) from clobbering FINAL (past R64).
+          const existing = fresh[bName];
+          if(!existing || _stPriority(st) >= _stPriority(existing.status)){
+            fresh[bName] = incoming;
+          }
         }
       }
     }
@@ -3957,10 +3988,10 @@ function _fmtTipoff(isoDate){
 
 function getScoreHTML(name){
   const d = LIVE_SCORES[name]; if(!d) return '';
-  if(d.status==='STATUS_FINAL'){
+  if(_isFinalStatus(d.status)){
     return `<span class="sc-score ${d.isWinner?'sc-win':'sc-loss'}">${d.score}</span>`;
   }
-  if(d.status==='STATUS_IN_PROGRESS'){
+  if(_isLiveStatus(d.status)){
     return `<span class="sc-score sc-live">${d.score}</span>`;
   }
   return '';
@@ -3970,7 +4001,7 @@ function getScoreHTML(name){
 // Resolves winner for a game from LIVE_SCORES — returns team name or null
 function _winnerFromScores(g){
   const d1 = LIVE_SCORES[g.t1], d2 = LIVE_SCORES[g.t2];
-  const f1 = d1?.status==='STATUS_FINAL', f2 = d2?.status==='STATUS_FINAL';
+  const f1 = _isFinalStatus(d1?.status), f2 = _isFinalStatus(d2?.status);
   if(!f1 && !f2) return null;
   // Prefer explicit isWinner=true flag
   if(d1?.isWinner===true) return g.t1;
@@ -4014,7 +4045,7 @@ function applyLiveResultsToPicks(){
 function isUpsetConfirmed(t1, t2, gameId){
   // Need at least one team confirmed FINAL (relaxed — name mapping may miss one side)
   const d1 = LIVE_SCORES[t1], d2 = LIVE_SCORES[t2];
-  const anyFinal = (d1?.status==='STATUS_FINAL') || (d2?.status==='STATUS_FINAL');
+  const anyFinal = _isFinalStatus(d1?.status) || _isFinalStatus(d2?.status);
   if(!anyFinal) return false;
   // Crown fires for MED or HIGH risk (2+ flags, or any HIGH-severity flag).
   // LOW = single low-severity flag (e.g. QUESTIONABLE only) — not sufficient for crown.
@@ -4035,22 +4066,36 @@ function isUpsetConfirmed(t1, t2, gameId){
 }
 
 function gameStatusBarHTML(t1, t2, gameId){
-  const d = LIVE_SCORES[t1]||LIVE_SCORES[t2]; if(!d) return '';
-  if(d.status==='STATUS_FINAL'){
+  // Use the more authoritative of the two teams' data
+  const d1 = LIVE_SCORES[t1], d2 = LIVE_SCORES[t2];
+  const d = (_stPriority(d1?.status) >= _stPriority(d2?.status)) ? d1 : d2;
+  if(!d) return '';
+  if(_isFinalStatus(d.status)){
     if(isUpsetConfirmed(t1, t2, gameId)){
       return `<div class="gsb gsb-upset"><span class="crown-icon">👑</span>&nbsp;Upset Called&nbsp;·&nbsp;FINAL</div>`;
     }
     return `<div class="gsb gsb-final">FINAL</div>`;
   }
-  if(d.status==='STATUS_IN_PROGRESS'){
-    const p = d.period===1?'1H': d.period===2?'2H': d.period>2?'OT':'';
+  if(d.status==='STATUS_HALFTIME'){
+    return `<div class="gsb gsb-live"><span class="live-dot"></span>HALFTIME</div>`;
+  }
+  if(d.status==='STATUS_IN_PROGRESS'||d.status==='STATUS_END_PERIOD'){
+    const p = d.period===1?'1H': d.period===2?'2H': d.period>2?`OT${d.period>3?d.period-2:''}`: '';
     return `<div class="gsb gsb-live"><span class="live-dot"></span>LIVE&nbsp;·&nbsp;${d.clock}&nbsp;${p}</div>`;
   }
-  if(d.status==='STATUS_SCHEDULED'){
+  if(d.status==='STATUS_SCHEDULED'||d.status==='STATUS_PREGAME'){
     const tip = _fmtTipoff(d.date);
     return tip ? `<div class="gsb gsb-sched">⏰&nbsp;${tip}</div>` : '';
   }
   return '';
+}
+
+// ── Smart refresh — 30s when games are live, 60s otherwise ───────────────────
+let _refreshTimer = null;
+function _scheduleNextFetch(){
+  if(_refreshTimer) clearTimeout(_refreshTimer);
+  const hasLive = Object.values(LIVE_SCORES).some(d => _isLiveStatus(d.status));
+  _refreshTimer = setTimeout(() => { fetchLiveScores().then(_scheduleNextFetch); }, hasLive ? 30000 : 60000);
 }
 
 // ── Init
@@ -4058,8 +4103,7 @@ function gameStatusBarHTML(t1, t2, gameId){
 LIVE_SCORES = _loadCachedFinals();
 applyLiveResultsToPicks();
 renderBracket();
-fetchLiveScores();
-setInterval(fetchLiveScores, 60000);
+fetchLiveScores().then(_scheduleNextFetch);
 </script>
 </body>
 </html>
