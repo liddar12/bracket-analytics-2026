@@ -29,6 +29,55 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 .legend-item{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 
+/* ── Game Filter Bar (iOS segmented control) ── */
+.filter-bar{
+  display:flex;align-items:center;justify-content:center;
+  background:#0d0d14;border-bottom:1px solid #1a2f47;
+  padding:7px 12px;gap:0;
+  -webkit-overflow-scrolling:touch;overflow-x:auto;scrollbar-width:none;
+}
+.filter-bar::-webkit-scrollbar{display:none}
+.filter-seg{
+  /* pill segment — iOS native feel */
+  display:flex;align-items:center;gap:5px;
+  padding:6px 14px;font-size:.72rem;font-weight:600;letter-spacing:.04em;
+  color:#667;background:#111a28;border:none;cursor:pointer;
+  white-space:nowrap;user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .15s,color .15s;
+  /* first/last get rounded ends; middle segments share borders */
+  border:1.5px solid #1e3050;
+}
+.filter-seg:first-child{border-radius:20px 0 0 20px}
+.filter-seg:last-child{border-radius:0 20px 20px 0}
+.filter-seg:not(:first-child){border-left:none}
+.filter-seg.fs-active{
+  background:#1a3a5c;color:#4fc3f7;border-color:#2a5a8a;z-index:1;
+}
+.filter-seg.fs-live{color:#e74c3c}
+.filter-seg.fs-active.fs-live{background:#2a1a1a;color:#ff6b6b;border-color:#8b2020}
+/* dot indicator */
+.filter-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:currentColor;display:inline-block;flex-shrink:0;
+}
+.filter-dot-live{background:#e74c3c;animation:pulse 1.4s ease-in-out infinite}
+.filter-count{
+  font-size:.62rem;background:#1e3050;color:#4a7a9b;
+  border-radius:8px;padding:1px 5px;margin-left:2px;
+  min-width:16px;text-align:center;
+}
+.filter-count.fc-live{background:#2a1a1a;color:#e74c3c}
+.filter-count.fc-zero{opacity:.35}
+/* empty-state message when filter returns no games */
+.filter-empty{
+  text-align:center;padding:36px 20px;color:#445;font-size:.8rem;
+}
+.filter-empty strong{display:block;font-size:1rem;color:#556;margin-bottom:6px}
+@media(max-width:480px){
+  .filter-seg{padding:6px 11px;font-size:.68rem}
+}
+
 /* ── Tabs ── */
 .tab-bar{display:flex;background:#111;border-bottom:2px solid #1a2f47;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;height:var(--tab-h)}
 .tab-bar::-webkit-scrollbar{display:none}
@@ -442,6 +491,23 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
   <div class="tab" onclick="showRound(3,this)"><span class="tab-short">E8</span><span class="tab-long">Elite Eight</span></div>
   <div class="tab" onclick="showRound(4,this)"><span class="tab-short">F4</span><span class="tab-long">Final Four</span></div>
   <div class="tab" onclick="showRound(5,this)"><span class="tab-short">🏆</span><span class="tab-long">Championship</span></div>
+</div>
+
+<!-- iOS-style game filter segmented control -->
+<div class="filter-bar" id="filterBar">
+  <button class="filter-seg fs-active" id="fsAll"    onclick="setGameFilter('all')"     ontouchstart="">
+    All <span class="filter-count" id="fcAll">—</span>
+  </button>
+  <button class="filter-seg fs-live"   id="fsLive"   onclick="setGameFilter('live')"    ontouchstart="">
+    <span class="filter-dot filter-dot-live"></span> Live
+    <span class="filter-count fc-live" id="fcLive">0</span>
+  </button>
+  <button class="filter-seg"           id="fsUpcoming" onclick="setGameFilter('upcoming')" ontouchstart="">
+    Upcoming <span class="filter-count" id="fcUpcoming">—</span>
+  </button>
+  <button class="filter-seg"           id="fsFinal"  onclick="setGameFilter('final')"   ontouchstart="">
+    Final <span class="filter-count" id="fcFinal">—</span>
+  </button>
 </div>
 
 <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileDrawer()"></div>
@@ -2479,6 +2545,56 @@ const FF_NOTES = {"Howard": "First Four: UMBC vs Howard (winner faces Michigan)"
 let picks = {};        // key: gameId -> winner name
 let selectedGame = null;
 let currentRound = 0;
+let currentFilter = 'all'; // 'all' | 'live' | 'upcoming' | 'final'
+
+// ── Game filter helpers ──────────────────────────────────────────────────────
+// Returns 'live' | 'final' | 'upcoming' for a given game
+function gameFilterStatus(g) {
+  const d1 = LIVE_SCORES[g.t1], d2 = LIVE_SCORES[g.t2];
+  if (d1?.status === 'STATUS_IN_PROGRESS' || d2?.status === 'STATUS_IN_PROGRESS') return 'live';
+  if (d1?.status === 'STATUS_FINAL'       || d2?.status === 'STATUS_FINAL')       return 'final';
+  return 'upcoming';
+}
+
+// Returns true if a game should be shown for the current filter
+function gamePassesFilter(g) {
+  if (currentFilter === 'all') return true;
+  return gameFilterStatus(g) === currentFilter;
+}
+
+// Update the count badges on all filter buttons
+function updateFilterCounts() {
+  const games = getAllGamesForRound(currentRound);
+  let nAll = games.length, nLive = 0, nUpcoming = 0, nFinal = 0;
+  games.forEach(g => {
+    const s = gameFilterStatus(g);
+    if (s === 'live')     nLive++;
+    else if (s === 'final')    nFinal++;
+    else                       nUpcoming++;
+  });
+  const set = (id, n, cls) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = n;
+    el.className = 'filter-count' + (cls ? ' ' + cls : '') + (n === 0 ? ' fc-zero' : '');
+  };
+  set('fcAll',      nAll);
+  set('fcLive',     nLive,     nLive     > 0 ? 'fc-live' : '');
+  set('fcUpcoming', nUpcoming);
+  set('fcFinal',    nFinal);
+}
+
+// Switch active filter — called by button onclick
+function setGameFilter(f) {
+  currentFilter = f;
+  // Update active class on buttons
+  ['all','live','upcoming','final'].forEach(k => {
+    const el = document.getElementById('fs' + k.charAt(0).toUpperCase() + k.slice(1));
+    if (!el) return;
+    el.classList.toggle('fs-active', k === f);
+  });
+  renderBracket();
+}
 
 const REGIONS = ["East","West","Midwest","South"];
 const REGION_COLORS = {East:"#1565c0",West:"#e65100",Midwest:"#2e7d32",South:"#b71c1c"};
@@ -3234,6 +3350,9 @@ function renderBracket() {
   const pane = document.getElementById("bracketPane");
   const games = getAllGamesForRound(currentRound);
 
+  // Update filter count badges every render
+  updateFilterCounts();
+
   if (currentRound === 5) { // Championship
     const g = games[0];
     const t1 = getTeam(g.t1), t2 = getTeam(g.t2);
@@ -3264,36 +3383,49 @@ function renderBracket() {
   }
 
   if (currentRound === 4) { // Final Four
+    const ffFiltered = games.filter(g => gamePassesFilter(g));
     let html = `<div style="max-width:700px;margin:0 auto;padding:16px">
       <div style="text-align:center;margin-bottom:16px;color:var(--accent);font-size:1.1rem;font-weight:700">🏟 FINAL FOUR — San Antonio, TX — April 5, 2026</div>`;
-    games.forEach(g => {
-      const winner = picks[g.id];
-      const rFlags = detectUpsetRisk(g.t1, g.t2);
-      const rLvl = riskLevel(rFlags);
-      const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
-      const ffUpsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
-      html += `<div style="margin-bottom:12px">
-        <div style="font-size:.75rem;color:#556;margin-bottom:4px;font-weight:700">${g.region}</div>
-        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}${ffUpsetCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
-          ${teamSlot(g.t1,g,winner)}
-          <div class="divider"></div>
-          ${teamSlot(g.t2,g,winner)}
-          ${gameStatusBarHTML(g.t1, g.t2, g.id)}
-          ${riskFooterHTML(g.t1, g.t2)}
-        </div></div>`;
-    });
+    if (!ffFiltered.length) {
+      html += `<div class="filter-empty"><strong>No ${currentFilter} games</strong>Check back when Final Four games are live, or switch to All.</div>`;
+    } else {
+      ffFiltered.forEach(g => {
+        const winner = picks[g.id];
+        const rFlags = detectUpsetRisk(g.t1, g.t2);
+        const rLvl = riskLevel(rFlags);
+        const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
+        const ffUpsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
+        html += `<div style="margin-bottom:12px">
+          <div style="font-size:.75rem;color:#556;margin-bottom:4px;font-weight:700">${g.region}</div>
+          <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}${ffUpsetCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+            ${teamSlot(g.t1,g,winner)}
+            <div class="divider"></div>
+            ${teamSlot(g.t2,g,winner)}
+            ${gameStatusBarHTML(g.t1, g.t2, g.id)}
+            ${riskFooterHTML(g.t1, g.t2)}
+          </div></div>`;
+      });
+    }
     html += `</div>`;
     pane.innerHTML = html;
     return;
   }
 
   // Standard round view (0-3) — group by region
+  const rndLabels = ["Round of 64","Round of 32","Sweet 16","Elite Eight"];
   let html = '';
+  let totalVisible = 0;
+
   for (const region of REGIONS) {
-    const regionGames = games.filter(g => g.region === region);
-    if (!regionGames.length) continue;
+    const allRegionGames = games.filter(g => g.region === region);
+    const regionGames   = allRegionGames.filter(g => gamePassesFilter(g));
+    if (!allRegionGames.length) continue;
     const cls = region.toLowerCase().replace('/','');
-    const rndLabels = ["Round of 64","Round of 32","Sweet 16","Elite Eight"];
+
+    // Always render region header; skip game cards only when filter hides everything
+    if (!regionGames.length) continue; // hide the entire region block when nothing passes
+
+    totalVisible += regionGames.length;
     html += `<div class="region-block">
       <div class="region-hdr ${cls}-hdr">${region} Region — ${rndLabels[currentRound]}</div>
       <div>`;
@@ -3303,8 +3435,11 @@ function renderBracket() {
       const rLvl = riskLevel(rFlags);
       const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
       const upsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
+      // Live indicator border
+      const isLive = gameFilterStatus(g) === 'live';
+      const liveBorder = isLive ? ';border:1.5px solid #c0392b' : '';
       html += `<div style="margin-bottom:6px;max-width:240px">
-        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}${upsetCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}${upsetCls}" style="${liveBorder}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
           ${teamSlot(g.t1,g,winner)}
           <div class="divider"></div>
           ${teamSlot(g.t2,g,winner)}
@@ -3315,6 +3450,20 @@ function renderBracket() {
     });
     html += `</div></div>`;
   }
+
+  // Empty state when filter has no results across all regions
+  if (!totalVisible) {
+    const filterLabel = {live:'live',upcoming:'upcoming',final:'completed final'}[currentFilter] || currentFilter;
+    html = `<div class="filter-empty">
+      <strong>No ${filterLabel} games in ${rndLabels[currentRound]}</strong>
+      ${currentFilter === 'live'
+        ? 'No games are in progress right now. Check back during game windows or switch to Upcoming.'
+        : currentFilter === 'upcoming'
+        ? 'All games in this round are either live or finished.'
+        : 'No games have been finalized in this round yet.'}
+    </div>`;
+  }
+
   pane.innerHTML = html;
 }
 
