@@ -2764,6 +2764,46 @@ function detectUpsetRisk(t1name, t2name) {
     });
   }
 
+  // FLAG 10: 5-12 Bracket Zone — historically the most volatile matchup in the tournament
+  // 12-seeds beat 5-seeds ~35.5% of the time (1985-2026: 57 wins out of 160 games).
+  // 2026 R64 confirmed: Utah St. over Villanova AND High Point over Wisconsin (2-for-2).
+  // When Barthag gap is under 0.11, efficiency is statistically near coin-flip territory.
+  if (fav.seed === 5 && dog.seed === 12) {
+    const bgap = Math.abs(fav.barthag - dog.barthag);
+    const tempoEdge = (dog.adjt || 68) > (fav.adjt || 68) + 3;
+    if (bgap < 0.11) {
+      flags.push({
+        severity: "med", icon: "🎯", title: "5-12 Zone: Efficiency Close",
+        desc: `5-vs-12 matchups are the most upset-prone slot in the bracket — 12-seeds win ` +
+              `~35.5% historically and went 2-for-2 in 2026 R64 (Utah St. over Villanova, ` +
+              `High Point over Wisconsin). Barthag gap here is only ${bgap.toFixed(3)} — ` +
+              `${dogName}'s efficiency is far closer to ${favName}'s than the seeding implies.` +
+              `${tempoEdge ? ' ' + dogName + ' also plays faster, adding variance.' : ''} ` +
+              `Never a safe chalk pick.`
+      });
+    }
+  }
+
+  // FLAG 11: Depleted Rotation — 2 or more starters confirmed OUT
+  // Multiple-starter absences compound non-linearly: chemistry disruption, bench depth, and
+  // offensive system breakdown amplify each individual absence beyond simple addition.
+  // 2026 R64 evidence: UNC (Wilson + Brown both OUT) fell to VCU despite being the higher seed.
+  const favOutStarters = (INJURIES[favName] || [])
+    .filter(i => (i.status === 'OUT' || i.status === 'OUT (R1)') && i.role === 'starter').length;
+  if (favOutStarters >= 2) {
+    const depletedNames = (INJURIES[favName] || [])
+      .filter(i => (i.status === 'OUT' || i.status === 'OUT (R1)') && i.role === 'starter')
+      .map(i => i.player).join(' + ');
+    flags.push({
+      severity: "high", icon: "🏥", title: "Depleted Rotation",
+      desc: `${favName} has lost ${favOutStarters} starters — ${depletedNames}. Multiple-absence ` +
+            `effects compound non-linearly: chemistry disruption, thinner bench, and lineup ` +
+            `uncertainty all amplify each individual loss. The model's efficiency stats were built ` +
+            `on a roster that no longer exists. UNC (Wilson + Brown OUT) is the 2026 R64 example — ` +
+            `fell to a lower-seeded VCU despite being the higher seed.`
+    });
+  }
+
   return flags;
 }
 
@@ -3100,12 +3140,23 @@ function composite(nameA, nameB, gameId) {
   const nilA = a.nil_spend || 1.0, nilB = b.nil_spend || 1.0;
   const pNIL = nilA / (nilA + nilB);
 
-  // 7. Injury penalty — reduce effective probability when starter(s) confirmed OUT
-  // Each confirmed starter OUT reduces the team's win probability by ~1.5% (soft signal)
+  // 7. Injury penalty — PPG-proportionate probability shift
+  // Models the actual offensive share lost, scaled by severity, capped at 20%.
+  // Replaces the old flat 1.5%-per-starter formula that only shifted ~0.45% per absence.
+  // Validation against 2026 R64: old formula gave UNC 0.9% shift (2 starters OUT);
+  // PPG-aware formula gives 10% shift — correctly flagged VCU and Texas as real threats.
   function injPenalty(tname) {
+    const tm = getTeam(tname);
+    const teamPPG = (tm && tm.ppg) ? tm.ppg : 72;
     const inj = INJURIES[tname] || [];
-    const outStarters = inj.filter(i => i.role==='starter' && i.status==='OUT').length;
-    return outStarters * 0.015;
+    let shift = 0;
+    for (const i of inj) {
+      if (i.status !== 'OUT' && i.status !== 'OUT (R1)') continue;
+      const pts = (i.ppg != null) ? i.ppg : (i.role === 'starter' ? 10 : 4);
+      const sev = i.severity === 'critical' ? 1.4 : i.severity === 'high' ? 0.9 : 0.3;
+      shift += (pts / teamPPG) * sev;
+    }
+    return Math.min(shift, 0.20); // cap: no team can lose more than 20% swing from injuries
   }
   const injA = injPenalty(nameA), injB = injPenalty(nameB);
 
@@ -3113,10 +3164,9 @@ function composite(nameA, nameB, gameId) {
   const wB = WEIGHTS.barthag/100, wQ = WEIGHTS.quad/100,
         wK = WEIGHTS.kp/100,      wS = WEIGHTS.seed/100,
         wT = WEIGHTS.tempo/100,   wN = WEIGHTS.nil/100;
-  const wI = (WEIGHTS.inj||3)/100;
-  // Injury weight redistributes from winner probability toward opponent
+  // Injury applied directly as probability fraction (bypasses wI scaling — PPG formula is self-weighted)
   let rawComp = wB*pBarth + wQ*pQuad + wK*pKP + wS*pSeed + wT*pTempo + wN*pNIL;
-  rawComp = Math.max(0.01, Math.min(0.99, rawComp - injA*wI*10 + injB*wI*10));
+  rawComp = Math.max(0.01, Math.min(0.99, rawComp - injA*0.5 + injB*0.5));
 
   // Apply per-game manual adjustment (from ADJUSTMENTS store)
   const adjOffset = (gameId && ADJUSTMENTS[gameId]) ? ADJUSTMENTS[gameId] / 100 : 0;
