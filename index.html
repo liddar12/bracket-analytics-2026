@@ -485,8 +485,8 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 </div>
 
 <div class="tab-bar" id="tabBar">
-  <div class="tab active" onclick="showRound(0,this)"><span class="tab-short">R64</span><span class="tab-long">Round of 64</span></div>
-  <div class="tab" onclick="showRound(1,this)"><span class="tab-short">R32</span><span class="tab-long">Round of 32</span></div>
+  <div class="tab" onclick="showRound(0,this)"><span class="tab-short">R64</span><span class="tab-long">Round of 64</span></div>
+  <div class="tab active" onclick="showRound(1,this)"><span class="tab-short">R32</span><span class="tab-long">Round of 32</span></div>
   <div class="tab" onclick="showRound(2,this)"><span class="tab-short">S16</span><span class="tab-long">Sweet 16</span></div>
   <div class="tab" onclick="showRound(3,this)"><span class="tab-short">E8</span><span class="tab-long">Elite Eight</span></div>
   <div class="tab" onclick="showRound(4,this)"><span class="tab-short">F4</span><span class="tab-long">Final Four</span></div>
@@ -2539,12 +2539,55 @@ const BRACKET_R64 = {
   ]
 };
 const HIST_WIN = {"1,16": 99.3, "2,15": 94.2, "3,14": 84.9, "4,13": 79.2, "5,12": 64.5, "6,11": 62.1, "7,10": 60.5, "8,9": 51.1};
-const FF_NOTES = {"Howard": "First Four: UMBC vs Howard (winner faces Michigan)", "Prairie View A&M": "First Four: Prairie View A&M vs Lehigh (winner faces Florida)", "Miami OH": "First Four: SMU vs Miami OH (winner faces Tennessee)", "Texas": "First Four: N.C. State vs Texas (winner faces BYU)"};
+const FF_NOTES = {"Prairie View A&M": "First Four: Prairie View A&M 67, Lehigh 55 — lost to Florida in R64", "Miami OH": "First Four: Miami OH 89, SMU 79 — lost to Tennessee in R64"};
 
 // State
 let picks = {};        // key: gameId -> winner name
 let selectedGame = null;
-let currentRound = 0;
+let currentRound = 1; // R64 is complete — start at R32
+
+// ── Pre-seeded R64 results (all games final as of 2026-03-21) ──────────────
+// IDs follow buildR64Games() order: East r64_0–7, West r64_8–15, Midwest r64_16–23, South r64_24–31
+const CONFIRMED_R64 = {
+  // East
+  "r64_0":"Duke",         // Duke 71, Siena 65
+  "r64_1":"TCU",          // TCU 66, Ohio St. 64  (UPSET)
+  "r64_2":"St. John's",   // St. John's 79, Northern Iowa 53
+  "r64_3":"Kansas",       // Kansas 68, Cal Baptist 60
+  "r64_4":"Louisville",   // Louisville 83, South Florida 79
+  "r64_5":"Michigan St.", // Michigan St. 92, North Dakota St. 67
+  "r64_6":"UCLA",         // UCLA 75, UCF 71
+  "r64_7":"Connecticut",  // Connecticut 82, Furman 71
+  // West
+  "r64_8":"Arizona",      // Arizona 92, LIU 58
+  "r64_9":"Utah St.",     // Utah St. 86, Villanova 76  (UPSET)
+  "r64_10":"High Point",  // High Point 83, Wisconsin 82  (UPSET)
+  "r64_11":"Arkansas",    // Arkansas 97, Hawaii 78
+  "r64_12":"Texas",       // Texas 79, BYU 71  (UPSET)
+  "r64_13":"Gonzaga",     // Gonzaga 73, Kennesaw St. 64
+  "r64_14":"Miami FL",    // Miami FL 80, Missouri 66
+  "r64_15":"Purdue",      // Purdue 104, Queens 71
+  // Midwest
+  "r64_16":"Michigan",    // Michigan 101, Howard 80
+  "r64_17":"Saint Louis", // Saint Louis 102, Georgia 77  (UPSET)
+  "r64_18":"Texas Tech",  // Texas Tech 91, Akron 71
+  "r64_19":"Alabama",     // Alabama 90, Hofstra 70
+  "r64_20":"Tennessee",   // Tennessee 78, Miami OH 56
+  "r64_21":"Virginia",    // Virginia 82, Wright St. 73
+  "r64_22":"Kentucky",    // Kentucky 89, Santa Clara 84
+  "r64_23":"Iowa St.",    // Iowa St. 108, Tennessee St. 74
+  // South
+  "r64_24":"Florida",     // Florida 114, Prairie View A&M 55
+  "r64_25":"Iowa",        // Iowa 67, Clemson 61  (UPSET)
+  "r64_26":"Vanderbilt",  // Vanderbilt 78, McNeese St. 68
+  "r64_27":"Nebraska",    // Nebraska 76, Troy 47
+  "r64_28":"VCU",         // VCU 82, North Carolina 78  (UPSET)
+  "r64_29":"Illinois",    // Illinois 105, Penn 70
+  "r64_30":"Texas A&M",   // Texas A&M 63, Saint Mary's 50
+  "r64_31":"Houston"      // Houston 78, Idaho 47
+};
+// Apply confirmed results immediately so R32 matchups render on first load
+Object.assign(picks, CONFIRMED_R64);
 let currentFilter = 'all'; // 'all' | 'live' | 'upcoming' | 'final'
 
 // ── Game filter helpers ──────────────────────────────────────────────────────
