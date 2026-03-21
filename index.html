@@ -495,17 +495,14 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 
 <!-- iOS-style game filter segmented control -->
 <div class="filter-bar" id="filterBar">
-  <button class="filter-seg fs-active" id="fsAll"    onclick="setGameFilter('all')"     ontouchstart="">
+  <button class="filter-seg fs-active" id="fsAll"   onclick="setGameFilter('all')"   ontouchstart="">
     All <span class="filter-count" id="fcAll">—</span>
   </button>
-  <button class="filter-seg fs-live"   id="fsLive"   onclick="setGameFilter('live')"    ontouchstart="">
+  <button class="filter-seg fs-live"   id="fsLive"  onclick="setGameFilter('live')"  ontouchstart="">
     <span class="filter-dot filter-dot-live"></span> Live
     <span class="filter-count fc-live" id="fcLive">0</span>
   </button>
-  <button class="filter-seg"           id="fsUpcoming" onclick="setGameFilter('upcoming')" ontouchstart="">
-    Upcoming <span class="filter-count" id="fcUpcoming">—</span>
-  </button>
-  <button class="filter-seg"           id="fsFinal"  onclick="setGameFilter('final')"   ontouchstart="">
+  <button class="filter-seg"           id="fsFinal" onclick="setGameFilter('final')" ontouchstart="">
     Final <span class="filter-count" id="fcFinal">—</span>
   </button>
 </div>
@@ -2588,34 +2585,52 @@ const CONFIRMED_R64 = {
 };
 // Apply confirmed results immediately so R32 matchups render on first load
 Object.assign(picks, CONFIRMED_R64);
-let currentFilter = 'all'; // 'all' | 'live' | 'upcoming' | 'final'
+let currentFilter = 'all'; // 'all' | 'live' | 'final'
 
 // ── Game filter helpers ──────────────────────────────────────────────────────
-// Returns 'live' | 'final' | 'upcoming' for a given game
+// Returns 'live' | 'final' | 'notplayed' for a given game
 function _isLiveStatus(st){ return st==='STATUS_IN_PROGRESS'||st==='STATUS_HALFTIME'||st==='STATUS_END_PERIOD'; }
 function _isFinalStatus(st){ return st&&(st==='STATUS_FINAL'||st.startsWith('STATUS_FINAL')); }
+
+// ── Game-scoped LIVE_SCORES lookup ──────────────────────────────────────────
+// Returns LIVE_SCORES[teamName] ONLY if that entry's stored opponent matches
+// the expected opponent. This prevents R64 scores from bleeding into R32+ cards.
+// If the entry has no opp field (legacy cache), always returns null — safe default.
+function _lsForGame(teamName, opponentName) {
+  const d = LIVE_SCORES[teamName];
+  if (!d) return null;
+  // Require opp field to match. An entry without opp is stale/untrustworthy — skip it.
+  if (!d.opp) return null;
+  if (opponentName && d.opp !== opponentName) return null;
+  return d;
+}
+
 function gameFilterStatus(g) {
-  const d1 = LIVE_SCORES[g.t1], d2 = LIVE_SCORES[g.t2];
+  // Use _lsForGame so only scores from THIS specific game (matched by opponent) are used.
+  // This prevents a team's R64 FINAL score from making an R32 game appear as 'final'.
+  const d1 = _lsForGame(g.t1, g.t2);
+  const d2 = _lsForGame(g.t2, g.t1);
   if (_isLiveStatus(d1?.status) || _isLiveStatus(d2?.status)) return 'live';
   if (_isFinalStatus(d1?.status) || _isFinalStatus(d2?.status)) return 'final';
-  return 'upcoming';
+  return 'notplayed';
 }
 
 // Returns true if a game should be shown for the current filter
 function gamePassesFilter(g) {
   if (currentFilter === 'all') return true;
-  return gameFilterStatus(g) === currentFilter;
+  if (currentFilter === 'live')  return gameFilterStatus(g) === 'live';
+  if (currentFilter === 'final') return gameFilterStatus(g) === 'final';
+  return true;
 }
 
-// Update the count badges on all filter buttons
+// Update the count badges on all filter buttons (scoped to currentRound)
 function updateFilterCounts() {
   const games = getAllGamesForRound(currentRound);
-  let nAll = games.length, nLive = 0, nUpcoming = 0, nFinal = 0;
+  let nAll = games.length, nLive = 0, nFinal = 0;
   games.forEach(g => {
     const s = gameFilterStatus(g);
-    if (s === 'live')     nLive++;
-    else if (s === 'final')    nFinal++;
-    else                       nUpcoming++;
+    if (s === 'live')  nLive++;
+    if (s === 'final') nFinal++;
   });
   const set = (id, n, cls) => {
     const el = document.getElementById(id);
@@ -2623,17 +2638,15 @@ function updateFilterCounts() {
     el.textContent = n;
     el.className = 'filter-count' + (cls ? ' ' + cls : '') + (n === 0 ? ' fc-zero' : '');
   };
-  set('fcAll',      nAll);
-  set('fcLive',     nLive,     nLive     > 0 ? 'fc-live' : '');
-  set('fcUpcoming', nUpcoming);
-  set('fcFinal',    nFinal);
+  set('fcAll',   nAll);
+  set('fcLive',  nLive,  nLive > 0 ? 'fc-live' : '');
+  set('fcFinal', nFinal);
 }
 
 // Switch active filter — called by button onclick
 function setGameFilter(f) {
   currentFilter = f;
-  // Update active class on buttons
-  ['all','live','upcoming','final'].forEach(k => {
+  ['all','live','final'].forEach(k => {
     const el = document.getElementById('fs' + k.charAt(0).toUpperCase() + k.slice(1));
     if (!el) return;
     el.classList.toggle('fs-active', k === f);
@@ -3384,6 +3397,8 @@ function nextOpponent(game, winnerName) {
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function showRound(round, tabEl) {
   currentRound = round;
+  currentFilter = 'all';  // reset filter every time round changes
+  setGameFilter('all');
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   tabEl.classList.add("active");
   renderBracket();
@@ -3498,14 +3513,12 @@ function renderBracket() {
 
   // Empty state when filter has no results across all regions
   if (!totalVisible) {
-    const filterLabel = {live:'live',upcoming:'upcoming',final:'completed final'}[currentFilter] || currentFilter;
+    const filterLabel = {live:'live',final:'completed final'}[currentFilter] || 'matching';
     html = `<div class="filter-empty">
       <strong>No ${filterLabel} games in ${rndLabels[currentRound]}</strong>
       ${currentFilter === 'live'
-        ? 'No games are in progress right now. Check back during game windows or switch to Upcoming.'
-        : currentFilter === 'upcoming'
-        ? 'All games in this round are either live or finished.'
-        : 'No games have been finalized in this round yet.'}
+        ? 'No games are in progress right now. Check back during game windows or switch to All.'
+        : 'No games have been finalized in this round yet. Switch to All to see scheduled matchups.'}
     </div>`;
   }
 
@@ -3517,6 +3530,8 @@ function teamSlot(name, game, winner) {
   const seed = t ? t.seed : '?';
   const tc = trapClass(t?.trap);
   const isWinner = winner === name;
+  // Extract this team's opponent so getScoreHTML can scope to the correct game
+  const opponent = game ? (game.t1 === name ? game.t2 : game.t1) : null;
   const isLoser  = winner && winner !== name;
   let cls = '';
   if (isWinner) cls = 'winner';
@@ -3532,7 +3547,7 @@ function teamSlot(name, game, winner) {
     <span class="tname">${name}${FF_NOTES[name]?'*':''}</span>
     ${injBadge}
     <div class="trap-dot ${tc}"></div>
-    ${getScoreHTML(name)}
+    ${getScoreHTML(name, opponent)}
   </div>`;
 }
 
@@ -3936,7 +3951,7 @@ let _lsFetchTick = 0;
 let _lsLastUpdate = 0;
 
 // ── localStorage cache for FINAL results — persists across day boundaries ──
-const _LS_KEY = 'ncaa26_finals_v2';
+const _LS_KEY = 'ncaa26_finals_v3';
 function _loadCachedFinals(){
   try{ return JSON.parse(localStorage.getItem(_LS_KEY)||'{}'); }
   catch(e){ return {}; }
@@ -3996,11 +4011,14 @@ async function fetchLiveScores(){
           const opp   = competitors.find(c=>c!==cmp);
           const bName = _espnToBracket(short, full);
           if(!bName) continue;
+          // Also store the opponent bracket name so scores can be scoped to the correct game
+          const oppBName = _espnToBracket(opp?.team?.shortDisplayName||'', opp?.team?.displayName||'');
           const incoming = {
             score:    parseInt(cmp.score||'0'),
             oppScore: parseInt(opp?.score||'0'),
             status: st, clock, period, date,
-            isWinner: cmp.winner === true
+            isWinner: cmp.winner === true,
+            opp: oppBName  // which opponent this score entry belongs to
           };
           // Only overwrite if incoming status is equally or more authoritative.
           // This prevents SCHEDULED (future R32) from clobbering FINAL (past R64).
@@ -4029,8 +4047,9 @@ function _fmtTipoff(isoDate){
   } catch{ return ''; }
 }
 
-function getScoreHTML(name){
-  const d = LIVE_SCORES[name]; if(!d) return '';
+function getScoreHTML(name, opponent){
+  // opponent param gates score to the correct game — prevents R64 scores showing on R32+ cards
+  const d = _lsForGame(name, opponent); if(!d) return '';
   if(_isFinalStatus(d.status)){
     return `<span class="sc-score ${d.isWinner?'sc-win':'sc-loss'}">${d.score}</span>`;
   }
@@ -4043,7 +4062,8 @@ function getScoreHTML(name){
 // ── Auto-advance confirmed winners into picks[] ──────────────────────────────
 // Resolves winner for a game from LIVE_SCORES — returns team name or null
 function _winnerFromScores(g){
-  const d1 = LIVE_SCORES[g.t1], d2 = LIVE_SCORES[g.t2];
+  const d1 = _lsForGame(g.t1, g.t2);
+  const d2 = _lsForGame(g.t2, g.t1);
   const f1 = _isFinalStatus(d1?.status), f2 = _isFinalStatus(d2?.status);
   if(!f1 && !f2) return null;
   // Prefer explicit isWinner=true flag
@@ -4086,22 +4106,16 @@ function applyLiveResultsToPicks(){
 }
 
 function isUpsetConfirmed(t1, t2, gameId){
-  // Need at least one team confirmed FINAL (relaxed — name mapping may miss one side)
-  const d1 = LIVE_SCORES[t1], d2 = LIVE_SCORES[t2];
+  const d1 = _lsForGame(t1, t2), d2 = _lsForGame(t2, t1);
   const anyFinal = _isFinalStatus(d1?.status) || _isFinalStatus(d2?.status);
   if(!anyFinal) return false;
-  // Crown fires for MED or HIGH risk (2+ flags, or any HIGH-severity flag).
-  // LOW = single low-severity flag (e.g. QUESTIONABLE only) — not sufficient for crown.
   const lvl = riskLevel(detectUpsetRisk(t1, t2));
   if(lvl === 'clean' || lvl === 'low') return false;
-  // Underdog = whoever composite model gave <50% win probability to
   const c = composite(t1, t2, gameId);
   const [fav, dog] = c.comp >= 0.5 ? [t1, t2] : [t2, t1];
-  const dDog = LIVE_SCORES[dog], dFav = LIVE_SCORES[fav];
-  // Crown fires if underdog won — confirmed via explicit flag OR favorite's loss
+  const dDog = _lsForGame(dog, fav), dFav = _lsForGame(fav, dog);
   if(dDog?.isWinner === true) return true;
   if(dFav?.isWinner === false && dFav?.status === 'STATUS_FINAL') return true;
-  // Infer from score differential if both available
   if(dDog && dFav && dDog.status==='STATUS_FINAL'){
     return dDog.score > dFav.score;
   }
@@ -4109,8 +4123,8 @@ function isUpsetConfirmed(t1, t2, gameId){
 }
 
 function gameStatusBarHTML(t1, t2, gameId){
-  // Use the more authoritative of the two teams' data
-  const d1 = LIVE_SCORES[t1], d2 = LIVE_SCORES[t2];
+  // Use _lsForGame so only data from THIS specific matchup is used — no cross-round bleed
+  const d1 = _lsForGame(t1, t2), d2 = _lsForGame(t2, t1);
   const d = (_stPriority(d1?.status) >= _stPriority(d2?.status)) ? d1 : d2;
   if(!d) return '';
   if(_isFinalStatus(d.status)){
