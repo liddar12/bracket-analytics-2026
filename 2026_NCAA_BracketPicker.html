@@ -1,0 +1,4264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bracket Analytics">
+<title>Jimmy Liddar's 2026 Bracket Analytics</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:-apple-system,'Segoe UI',Arial,sans-serif;background:#0d1b2a;color:#e0e0e0;min-height:100%;-webkit-text-size-adjust:100%}
+:root{
+  --navy:#0d1b2a;--navy2:#1a2f47;--accent:#c9a84c;--green:#27ae60;
+  --teal:#00b4d8;--purple:#7b2d8b;--red:#c0392b;--gray:#4a6080;
+  --east:#1565c0;--west:#e65100;--midwest:#2e7d32;--south:#b71c1c;
+  --trap-in:#1a7a3c;--trap-pos:#7d5a00;--trap-no:#555;
+  --hdr-h:60px; --tab-h:40px;
+}
+
+/* ── Header ── */
+header{background:linear-gradient(135deg,#0d1b2a,#1a3a5c);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--accent);height:var(--hdr-h);gap:8px}
+header h1{font-size:1.15rem;color:var(--accent);font-weight:700;line-height:1.2}
+header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr-left{min-width:0;flex:1}
+.hdr-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.legend{display:flex;gap:10px;align-items:center;font-size:.72rem}
+.legend-item{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* ── Game Filter Bar (iOS segmented control) ── */
+.filter-bar{
+  display:flex;align-items:center;justify-content:center;
+  background:#0d0d14;border-bottom:1px solid #1a2f47;
+  padding:7px 12px;gap:0;
+  -webkit-overflow-scrolling:touch;overflow-x:auto;scrollbar-width:none;
+}
+.filter-bar::-webkit-scrollbar{display:none}
+.filter-seg{
+  /* pill segment — iOS native feel */
+  display:flex;align-items:center;gap:5px;
+  padding:6px 14px;font-size:.72rem;font-weight:600;letter-spacing:.04em;
+  color:#667;background:#111a28;border:none;cursor:pointer;
+  white-space:nowrap;user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .15s,color .15s;
+  /* first/last get rounded ends; middle segments share borders */
+  border:1.5px solid #1e3050;
+}
+.filter-seg:first-child{border-radius:20px 0 0 20px}
+.filter-seg:last-child{border-radius:0 20px 20px 0}
+.filter-seg:not(:first-child){border-left:none}
+.filter-seg.fs-active{
+  background:#1a3a5c;color:#4fc3f7;border-color:#2a5a8a;z-index:1;
+}
+.filter-seg.fs-live{color:#e74c3c}
+.filter-seg.fs-active.fs-live{background:#2a1a1a;color:#ff6b6b;border-color:#8b2020}
+/* dot indicator */
+.filter-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:currentColor;display:inline-block;flex-shrink:0;
+}
+.filter-dot-live{background:#e74c3c;animation:pulse 1.4s ease-in-out infinite}
+.filter-count{
+  font-size:.62rem;background:#1e3050;color:#4a7a9b;
+  border-radius:8px;padding:1px 5px;margin-left:2px;
+  min-width:16px;text-align:center;
+}
+.filter-count.fc-live{background:#2a1a1a;color:#e74c3c}
+.filter-count.fc-zero{opacity:.35}
+/* empty-state message when filter returns no games */
+.filter-empty{
+  text-align:center;padding:36px 20px;color:#445;font-size:.8rem;
+}
+.filter-empty strong{display:block;font-size:1rem;color:#556;margin-bottom:6px}
+@media(max-width:480px){
+  .filter-seg{padding:6px 11px;font-size:.68rem}
+}
+
+/* ── Tabs ── */
+.tab-bar{display:flex;background:#111;border-bottom:2px solid #1a2f47;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;height:var(--tab-h)}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab{padding:0 14px;cursor:pointer;font-size:.82rem;white-space:nowrap;color:#888;border-bottom:3px solid transparent;transition:color .2s,background .2s;display:flex;align-items:center;height:100%}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);background:#1a2f47}
+.tab:hover:not(.active){color:#ccc;background:#1a2d44}
+.tab-short{display:none}
+.tab-long{display:inline}
+
+/* ── Main layout ── */
+.main-layout{display:flex;height:calc(100vh - var(--hdr-h) - var(--tab-h));height:calc(100dvh - var(--hdr-h) - var(--tab-h));overflow:hidden}
+.bracket-pane{flex:1;overflow:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.analysis-pane{width:360px;background:#111a26;border-left:2px solid #1a3a5c;overflow-y:auto;flex-shrink:0;-webkit-overflow-scrolling:touch}
+
+/* ── Bracket ── */
+.region-block{margin-bottom:18px}
+.region-hdr{font-size:.8rem;font-weight:700;padding:6px 10px;border-radius:4px;margin-bottom:6px;letter-spacing:.05em}
+.east-hdr{background:var(--east)}.west-hdr{background:var(--west)}
+.midwest-hdr{background:var(--midwest)}.south-hdr{background:var(--south)}
+.rounds-row{display:flex;gap:6px;align-items:flex-start}
+.round-col{display:flex;flex-direction:column;gap:4px;min-width:148px}
+.round-label{font-size:.65rem;color:#667;text-align:center;margin-bottom:2px;font-weight:600;letter-spacing:.08em}
+.matchup-card{background:#1a2f47;border-radius:5px;overflow:hidden;border:1px solid #1e3d5c;cursor:pointer;transition:border-color .15s}
+.matchup-card:hover{border-color:var(--accent)}
+.matchup-card.selected{border-color:var(--accent);box-shadow:0 0 6px rgba(201,168,76,.4)}
+.team-slot{display:flex;align-items:center;padding:5px 7px;gap:5px;cursor:pointer;transition:background .15s;min-height:30px}
+.team-slot:hover{background:#243e5c}
+.team-slot.winner{background:#0e3020;font-weight:700}
+.team-slot.winner .tname{color:#4fc3a1}
+.team-slot.loser{opacity:.45}
+.seed-badge{font-size:.65rem;font-weight:700;color:#778;min-width:16px;text-align:right}
+.tname{font-size:.8rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trap-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.trap-in{background:#27ae60}.trap-pos{background:#f39c12}.trap-no{background:#555}
+.divider{height:1px;background:#1e3d5c}
+.game-score{font-size:.6rem;color:#556;padding:2px 7px;text-align:center}
+.round-col.r32 .matchup-card{margin-top:30px}
+.round-col.r32 .matchup-card:first-child{margin-top:0}
+.round-col.s16 .matchup-card{margin-top:86px}
+.round-col.s16 .matchup-card:first-child{margin-top:0}
+.round-col.e8 .matchup-card{margin-top:200px}
+
+/* ── Analysis Pane ── */
+.ap-drag-bar{display:none;justify-content:center;align-items:center;padding:10px 0 6px;cursor:pointer;flex-shrink:0}
+.drag-pill{width:36px;height:4px;background:#2a4a6a;border-radius:2px}
+.ap-placeholder{padding:30px 20px;text-align:center;color:#456}
+.ap-placeholder p{margin-top:8px;font-size:.85rem}
+.ap-placeholder h3{color:#667;font-size:1rem}
+.ap-body{padding:14px}
+.ap-title{font-size:.8rem;color:#778;margin-bottom:10px;font-weight:600;letter-spacing:.08em}
+.team-compare{display:grid;grid-template-columns:1fr 36px 1fr;gap:4px;align-items:center;margin-bottom:12px}
+.team-box{background:#1a2f47;border-radius:6px;padding:10px;text-align:center}
+.team-box.t1{border-top:3px solid var(--teal)}
+.team-box.t2{border-top:3px solid #e67e22}
+.team-box .tname-big{font-size:.9rem;font-weight:700;margin-bottom:4px}
+.team-box .seed-str{font-size:.68rem;color:#667;margin-bottom:6px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:6px}
+.stat-item{font-size:.7rem;color:#aaa}
+.stat-item span{color:#ddd;font-weight:600}
+.vs-col{text-align:center;color:#446;font-weight:700;font-size:.85rem}
+/* Probability bar */
+.prob-section{margin-bottom:12px}
+.prob-title{font-size:.75rem;color:#778;margin-bottom:6px;font-weight:700}
+.composite-bar-wrap{background:#0d1b2a;border-radius:20px;height:30px;overflow:hidden;position:relative;margin-bottom:4px}
+.composite-bar-t1{height:100%;background:linear-gradient(90deg,var(--teal),#1a8ca0);border-radius:20px 0 0 20px;transition:width .4s;display:flex;align-items:center;padding-left:10px;font-size:.8rem;font-weight:700}
+.composite-bar-t2{position:absolute;right:0;top:0;height:100%;background:linear-gradient(90deg,#c0392b,#e67e22);border-radius:0 20px 20px 0;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:.8rem;font-weight:700}
+.factor-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:.72rem}
+.factor-label{width:80px;color:#778;flex-shrink:0;font-size:.68rem}
+.factor-bar{flex:1;background:#0d1b2a;border-radius:10px;height:10px;overflow:hidden}
+.factor-fill{height:100%;border-radius:10px;transition:width .3s}
+.factor-fill.f1{background:var(--teal)}.factor-fill.f2{background:#e67e22}
+.factor-pct{width:36px;text-align:right;font-size:.68rem;font-weight:600;color:#aaa}
+/* Pick buttons */
+.pick-btns{display:flex;gap:8px;margin-top:10px}
+.pick-btn{flex:1;padding:12px 8px;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:700;transition:transform .1s,opacity .1s;min-height:48px;-webkit-tap-highlight-color:transparent}
+.pick-btn:active{transform:scale(.97)}
+.pick-btn.t1-btn{background:var(--teal);color:#000}
+.pick-btn.t2-btn{background:#e67e22;color:#000}
+.next-opp{margin-top:10px;background:#1a2f47;border-radius:6px;padding:10px;font-size:.75rem}
+.next-opp-title{color:#556;font-weight:600;margin-bottom:4px}
+.next-opp-val{color:#aaa}
+.trapezoid-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:.65rem;font-weight:700;margin-top:4px}
+.trap-badge-in{background:#0e3020;color:#4fc3a1;border:1px solid #27ae60}
+.trap-badge-pos{background:#2a1f00;color:#f39c12;border:1px solid #f39c12}
+.trap-badge-no{background:#1a1a1a;color:#667;border:1px solid #333}
+.champ-row{display:flex;flex-direction:column;gap:4px;justify-content:center;padding:10px}
+
+/* ── Upset Risk System ── */
+.risk-footer{padding:3px 7px 4px;font-size:.6rem;font-weight:700;display:flex;align-items:center;gap:4px;border-top:1px solid #1e3d5c;letter-spacing:.03em}
+.risk-footer.rf-high{background:#2d0d0d;color:#ff7070;border-top-color:#5a1818}
+.risk-footer.rf-med{background:#2a1e00;color:#f5a623;border-top-color:#4d3800}
+.risk-footer.rf-low{background:#0e1e2a;color:#6dcbff;border-top-color:#1e3d5c}
+.matchup-card.risk-high{border-color:#8b2020!important}
+.matchup-card.risk-high:hover{border-color:#e05050!important}
+.matchup-card.risk-med{border-color:#7a5200!important}
+.matchup-card.risk-med:hover{border-color:#d4900a!important}
+/* Risk Section in Analysis Pane */
+.risk-section{margin:10px 0;border-radius:6px;overflow:hidden;border:1px solid #2a1a00}
+.risk-section.rs-clean{border-color:#0e2a12}
+.risk-header{padding:7px 10px;display:flex;align-items:center;gap:6px;font-size:.73rem;font-weight:700;letter-spacing:.04em}
+.rh-high{background:#2d0d0d;color:#ff7070;border-bottom:1px solid #5a1818}
+.rh-med{background:#2a1e00;color:#f5a623;border-bottom:1px solid #4d3800}
+.rh-clean{background:#0e2218;color:#4fc3a1;border-bottom:1px solid #0e2a12}
+.risk-flags-body{background:#130d0d;padding:8px 10px}
+.rs-clean .risk-flags-body{background:#0a1612}
+.risk-flag{display:flex;gap:9px;margin-bottom:9px;font-size:.71rem;line-height:1.45}
+.risk-flag:last-child{margin-bottom:0}
+.rflag-icon{flex-shrink:0;margin-top:1px;font-size:.85rem}
+.rflag-title{font-weight:700;color:#f5a623;margin-bottom:2px;font-size:.73rem}
+.rflag-desc{color:#8a8a9a;line-height:1.4}
+/* Adjustment Slider */
+.adj-section{margin:10px 0;background:#0b1520;border:1px solid #1a3555;border-radius:6px;padding:9px 10px}
+.adj-title{font-size:.73rem;color:#9bb;font-weight:700;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center}
+.adj-subtitle{font-size:.62rem;color:#445;margin-bottom:8px;line-height:1.4}
+.adj-row{display:flex;align-items:center;gap:7px}
+.adj-edge-label{font-size:.62rem;color:#445;white-space:nowrap;max-width:70px;overflow:hidden;text-overflow:ellipsis}
+.adj-slider{flex:1;accent-color:var(--accent);cursor:pointer;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:#1a2f47;outline:none}
+.adj-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #0d1b2a}
+.adj-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #0d1b2a}
+.adj-val-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.adj-display{font-size:.78rem;font-weight:700}
+.adj-disp-pos{color:#f5a623}
+.adj-disp-neg{color:#6dcbff}
+.adj-disp-zero{color:#445}
+.adj-reset-btn{font-size:.62rem;color:#445;cursor:pointer;background:none;border:1px solid #1a3555;border-radius:3px;padding:2px 7px;color:#667}
+.adj-reset-btn:hover{color:#aaa;border-color:#2a4a6a}
+.champ-label{font-size:.65rem;color:#446;text-align:center;font-weight:700;letter-spacing:.1em}
+
+/* ── Buttons ── */
+.reset-btn{padding:8px 12px;background:#1a2f47;color:#aaa;border:1px solid #2a4060;border-radius:6px;cursor:pointer;font-size:.78rem;-webkit-tap-highlight-color:transparent;min-height:36px}
+.reset-btn:hover{background:#2a4060;color:#ddd}
+.weights-btn{padding:8px 11px;background:#1a2f47;color:#9bb;border:1px solid #2a4a6a;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:600;transition:background .15s;-webkit-tap-highlight-color:transparent;min-height:36px}
+.weights-btn:hover{background:#243e5c;color:var(--accent)}
+
+/* ── Weights Modal ── */
+.weights-panel{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:12px}
+.weights-panel.open{display:flex}
+.weights-modal{background:#131f30;border:1px solid #2a4a6a;border-radius:12px;padding:22px 20px;width:100%;max-width:370px;box-shadow:0 8px 32px rgba(0,0,0,.7);max-height:90vh;overflow-y:auto}
+.weights-modal h3{color:var(--accent);font-size:1rem;margin-bottom:3px}
+.wm-sub{font-size:.72rem;color:#556;margin-bottom:18px}
+.weight-row{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.weight-row label{width:110px;font-size:.78rem;color:#aab;flex-shrink:0}
+.weight-slider{flex:1;accent-color:var(--teal);cursor:pointer;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:#1a2f47;outline:none}
+.weight-slider::-webkit-slider-runnable-track{-webkit-appearance:none;background:linear-gradient(90deg,var(--teal) 0%,var(--teal) var(--val,50%),#1a2f47 var(--val,50%));height:6px;border-radius:3px}
+.weight-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:var(--teal);cursor:pointer;border:2px solid #0d1b2a;margin-top:-8px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.weight-slider::-moz-range-track{background:#1a2f47;height:6px;border-radius:3px}
+.weight-slider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--teal);border:2px solid #0d1b2a;cursor:pointer}
+.weight-num{width:46px;background:#0d1b2a;border:1px solid #2a4a6a;border-radius:4px;color:#eee;text-align:center;font-size:.82rem;padding:4px 4px;min-height:32px}
+.weight-num:focus{outline:1px solid var(--teal)}
+.weights-total{font-size:.8rem;text-align:right;margin:8px 0 14px;font-weight:700;padding:6px 8px;border-radius:4px}
+.weights-total.ok{color:#27ae60;background:#0d1f10}
+.weights-total.warn{color:#e74c3c;background:#1f0d0d}
+.wm-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.wm-btn{padding:9px 14px;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:700;min-height:40px}
+.wm-btn.apply{background:var(--teal);color:#000}
+.wm-btn.normalize{background:#7b2d8b;color:#fff}
+.wm-btn.wm-cancel{background:#1a2f47;color:#aaa;border:1px solid #2a4a6a}
+
+/* ── View Bracket / Print buttons ── */
+.view-btn{padding:8px 10px;background:#1a2f47;color:#9bb;border:1px solid #2a4a6a;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:600;transition:background .15s;-webkit-tap-highlight-color:transparent;min-height:36px;white-space:nowrap}
+.view-btn:hover{background:#243e5c;color:var(--accent)}
+.vb-long{display:inline}.vb-short{display:none}
+
+/* ── Full Bracket Modal Overlay ── */
+.fb-overlay{position:fixed;inset:0;z-index:3000;background:#0b1522;display:none;flex-direction:column;overflow:hidden}
+.fb-overlay.open{display:flex}
+.fb-modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:linear-gradient(135deg,#0d1b2a,#1a3a5c);border-bottom:2px solid var(--accent);flex-shrink:0;gap:8px}
+.fb-modal-hdr h2{color:var(--accent);font-size:.9rem;font-weight:700;white-space:nowrap;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.fb-modal-btns{display:flex;gap:6px;flex-shrink:0}
+.fb-mbtn{padding:7px 12px;border:none;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:700;min-height:36px;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.fb-mbtn.fb-close{background:#1a2f47;color:#aaa;border:1px solid #2a4060}
+.fb-mbtn.fb-print{background:var(--accent);color:#000}
+.fb-mbtn:active{transform:scale(.97)}
+.fb-modal-body{flex:1;overflow:auto;padding:10px 8px;-webkit-overflow-scrolling:touch}
+
+/* ── Bracket structure ──
+   Core trick: all round-columns share the SAME height.
+   justify-content:space-around distributes games so R32 game 1
+   sits exactly between R64 games 1+2, R32 game 2 between 3+4, etc. */
+.fb-outer{min-width:520px}
+.fb-region{margin-bottom:14px}
+.fb-rlabel{font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:3px;margin-bottom:4px;letter-spacing:.06em;display:inline-block}
+.fb-rounwrap{display:flex;gap:2px;align-items:flex-start}
+.fb-col-wrap{display:flex;flex-direction:column}
+.fb-col-label{font-size:.54rem;color:#334;text-align:center;padding:0 0 2px;letter-spacing:.08em;font-weight:700;height:13px;flex-shrink:0}
+.fb-col{display:flex;flex-direction:column;justify-content:space-around;flex-shrink:0}
+.fb-slot{display:flex;align-items:center;justify-content:center}
+
+/* Game card */
+.fb-card{background:#1a2f47;border-radius:4px;border:1px solid #1e3d5c;overflow:hidden;width:118px}
+.fb-card-tbd{width:118px;height:36px;display:flex;align-items:center;justify-content:center;font-size:.58rem;color:#2a4060;background:#131f30;border-radius:4px;border:1px dashed #1e3d5c}
+.fb-team{display:flex;align-items:center;gap:3px;padding:3px 5px;font-size:.64rem;min-height:17px;overflow:hidden}
+.fb-team.fb-win{background:#0e3020;font-weight:700;color:#4fc3a1}
+.fb-team.fb-lose{opacity:.3}
+.fb-s{font-size:.57rem;color:#667;min-width:13px;text-align:right;flex-shrink:0}
+.fb-tn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.fb-fdiv{height:1px;background:#1e3d5c}
+
+/* Final Four + Championship */
+.fb-finals{margin-top:10px;padding:10px;background:#131f30;border-radius:8px;border:1px solid #1a3a5c}
+.fb-finals-hdr{font-size:.65rem;color:#556;font-weight:700;text-align:center;letter-spacing:.1em;margin-bottom:8px;text-transform:uppercase}
+.fb-finals-row{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap}
+.fb-ff-item{text-align:center}
+.fb-ff-label{font-size:.58rem;color:#445;margin-bottom:3px;font-weight:700;letter-spacing:.06em}
+.fb-champ-box{text-align:center;padding:10px 14px;background:linear-gradient(135deg,#1a3a10,#2a1a00);border-radius:8px;border:2px solid var(--accent);min-width:130px}
+.fb-champ-title{font-size:.62rem;color:var(--accent);font-weight:700;letter-spacing:.1em;margin-bottom:6px}
+.fb-champ-winner{font-size:1rem;font-weight:700;color:#fff;padding:4px 0;line-height:1.2}
+.fb-champ-sub{font-size:.6rem;color:#778;margin-top:3px}
+.fb-champ-tbd{font-size:.65rem;color:#334;padding:8px 0}
+
+/* Print media query — only shows bracket overlay content */
+@media print{
+  body>*:not(#fbOverlay){display:none!important}
+  #fbOverlay{position:static!important;display:block!important;background:#fff!important}
+  .fb-modal-hdr{display:none!important}
+  .fb-modal-body{overflow:visible!important;height:auto!important;max-height:none!important}
+  @page{size:landscape;margin:.35in}
+  .fb-outer{min-width:auto!important}
+  .fb-team{color:#111!important}
+  .fb-team.fb-win{background:#d4edda!important;color:#155724!important}
+  .fb-team.fb-lose{opacity:.45!important}
+  .fb-s{color:#555!important}
+  .fb-card{border:1px solid #ccc!important;background:#f8f8f8!important}
+  .fb-fdiv{background:#ddd!important}
+  .fb-rlabel{color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fb-col-label{color:#555!important}
+  .fb-finals{background:#f5f5f5!important;border:1px solid #ccc!important}
+  .fb-finals-hdr,.fb-ff-label{color:#333!important}
+  .fb-champ-box{background:#fffde7!important;border:2px solid #f9a825!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fb-champ-title{color:#e65100!important}
+  .fb-champ-winner,.fb-champ-sub{color:#111!important}
+  .fb-card-tbd{color:#999!important;border-color:#ddd!important}
+}
+
+/* Mobile tweaks for view-btn and fb- */
+@media(max-width:767px){
+  .vb-long{display:none}
+  .vb-short{display:inline}
+  .fb-modal-hdr h2{font-size:.8rem}
+  .fb-mbtn{padding:7px 10px;font-size:.75rem}
+}
+
+/* ── Misc ── */
+.prob-label{font-size:.7rem;color:#556;text-align:center;margin-top:2px}
+.champion-display{padding:16px;text-align:center;background:linear-gradient(135deg,#1a3a10,#2a1a00);border-radius:8px;margin-bottom:12px}
+.champion-display h3{color:var(--accent);font-size:1.1rem}
+.champion-display p{color:#ccc;font-size:.9rem;margin-top:4px}
+
+/* ── Mobile overlay (behind drawer) ── */
+.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:498}
+
+/* ════════════════════════════════════
+   TABLET  768–1024px
+════════════════════════════════════ */
+@media (max-width:1024px){
+  .legend{display:none}
+  .analysis-pane{width:320px}
+}
+
+/* ════════════════════════════════════
+   MOBILE  ≤ 767px
+════════════════════════════════════ */
+@media (max-width:767px){
+  :root{--hdr-h:52px;--tab-h:38px}
+
+  header{padding:8px 12px}
+  header h1{font-size:.95rem}
+  header p{display:none}
+  .legend{display:none}
+
+  .tab{padding:0 10px;font-size:.75rem}
+  .tab-short{display:inline}
+  .tab-long{display:none}
+
+  /* Bracket fills the screen; analysis is a bottom drawer */
+  .main-layout{height:calc(100vh - var(--hdr-h) - var(--tab-h));height:calc(100dvh - var(--hdr-h) - var(--tab-h));position:relative}
+  .bracket-pane{width:100%;padding:8px}
+  .analysis-pane{
+    position:fixed;bottom:0;left:0;right:0;width:100%;
+    /* 72% of dynamic viewport so it clears the URL bar */
+    height:72vh;height:72dvh;
+    /* extend into safe area (home indicator) */
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    border-left:none;border-top:2px solid var(--accent);
+    border-radius:18px 18px 0 0;
+    transform:translateY(100%);transition:transform .32s cubic-bezier(.4,0,.2,1);
+    z-index:499;overflow-y:auto;-webkit-overflow-scrolling:touch
+  }
+  .analysis-pane.mobile-open{transform:translateY(0)}
+  /* push pick buttons above home indicator pill */
+  .pick-btns{padding-bottom:env(safe-area-inset-bottom,0px)}
+  .mobile-overlay{display:none}
+  .mobile-overlay.active{display:block}
+
+  /* Show drag handle */
+  .ap-drag-bar{display:flex}
+
+  /* Larger touch targets */
+  .team-slot{min-height:36px;padding:6px 8px}
+  .pick-btn{padding:14px 8px;font-size:1rem;min-height:52px;border-radius:10px}
+  .matchup-card{border-radius:7px}
+
+  /* Weights modal full-width */
+  .weights-modal{border-radius:16px}
+  .wm-btns{justify-content:stretch}
+  .wm-btn{flex:1;text-align:center}
+}
+/* ── Live Score Styles ── */
+.sc-score{margin-left:auto;font-size:.78rem;font-weight:700;padding:1px 5px;border-radius:3px;min-width:22px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.sc-win{color:#4fc3a1}
+.sc-loss{color:#546e7a}
+.sc-live{color:#ff9090}
+.gsb{font-size:.58rem;font-weight:700;letter-spacing:.07em;padding:3px 8px;border-top:1px solid #1e3d5c;text-align:center;display:flex;align-items:center;justify-content:center;gap:4px}
+.gsb-final{background:#0d1b2a;color:#556}
+.gsb-live{background:#1a0808;color:#ff9090}
+.gsb-sched{background:#091520;color:#5ab4e0}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ff5050;flex-shrink:0}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
+.sc-live,.gsb-live,.live-dot{animation:livepulse 1.4s ease-in-out infinite}
+.score-refresh{font-size:.55rem;color:#334;margin-left:6px;cursor:pointer;user-select:none}
+.gsb-upset{background:linear-gradient(90deg,#1e1200,#0d1620);color:var(--accent);border-top:1px solid #3a2800;letter-spacing:.04em}
+.matchup-card.upset-confirmed{border-left:3px solid var(--accent) !important}
+@keyframes crownpop{0%{transform:scale(1)}45%{transform:scale(1.3)}100%{transform:scale(1)}}
+.crown-icon{display:inline-block;animation:crownpop .7s ease-out}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏀 Jimmy Liddar's 2026 Bracket Analytics</h1>
+    <p id="weightsSummary">barttorvik.com + KenPom + Season Stats | Composite model: Barthag 27% · Quad 24% · KP 13% · Seed 6% · Tempo 4% · NIL 13% · 🔥Heat 10%</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px">
+    <div class="legend">
+      <div class="legend-item"><div class="ldot trap-in"></div> Trapezoid</div>
+      <div class="legend-item"><div class="ldot trap-pos"></div> Possible</div>
+      <div class="legend-item"><div class="ldot trap-no"></div> Out</div>
+      <div class="legend-item" style="margin-left:6px;border-left:1px solid #2a4060;padding-left:10px"><span style="color:#ff7070;font-size:.75rem">🔺</span> High risk</div>
+      <div class="legend-item"><span style="color:#f5a623;font-size:.75rem">⚠️</span> Upset flag</div>
+    </div>
+    <button class="view-btn" onclick="showFullBracket()">📋 <span class="vb-long">My Bracket</span><span class="vb-short">Bracket</span></button>
+    <button class="view-btn" onclick="quickPrintBracket()" style="background:#1a3a18;color:#6fc;border-color:#2a6a2a">🖨 <span class="vb-long">Print</span></button>
+    <button class="weights-btn" onclick="openWeights()">⚙ <span class="vb-long">Weights</span></button>
+    <button class="reset-btn" onclick="resetBracket()">↺</button>
+  </div>
+</header>
+
+<!-- Weights Editor Modal -->
+<div class="weights-panel" id="weightsPanel" onclick="if(event.target===this)closeWeights()">
+  <div class="weights-modal">
+    <h3>⚙ Model Weights</h3>
+    <div class="wm-sub">Adjust how each factor contributes to win probability. Must total 100%.</div>
+    <div class="weight-row">
+      <label>Barthag (Log5)</label>
+      <input type="range" class="weight-slider" id="wBarthag" min="0" max="100" value="27" oninput="syncWeight('wBarthag','nBarthag')">
+      <input type="number" class="weight-num" id="nBarthag" min="0" max="100" value="27" oninput="syncWeight('nBarthag','wBarthag')">%
+    </div>
+    <div class="weight-row">
+      <label>KP Quadrant</label>
+      <input type="range" class="weight-slider" id="wQuad" min="0" max="100" value="24" oninput="syncWeight('wQuad','nQuad')">
+      <input type="number" class="weight-num" id="nQuad" min="0" max="100" value="24" oninput="syncWeight('nQuad','wQuad')">%
+    </div>
+    <div class="weight-row">
+      <label>KP Overall Rank</label>
+      <input type="range" class="weight-slider" id="wKP" min="0" max="100" value="13" oninput="syncWeight('wKP','nKP')">
+      <input type="number" class="weight-num" id="nKP" min="0" max="100" value="13" oninput="syncWeight('nKP','wKP')">%
+    </div>
+    <div class="weight-row">
+      <label>Seed History</label>
+      <input type="range" class="weight-slider" id="wSeed" min="0" max="100" value="6" oninput="syncWeight('wSeed','nSeed')">
+      <input type="number" class="weight-num" id="nSeed" min="0" max="100" value="6" oninput="syncWeight('nSeed','wSeed')">%
+    </div>
+    <div class="weight-row">
+      <label>Tempo Edge</label>
+      <input type="range" class="weight-slider" id="wTempo" min="0" max="100" value="4" oninput="syncWeight('wTempo','nTempo')">
+      <input type="number" class="weight-num" id="nTempo" min="0" max="100" value="4" oninput="syncWeight('nTempo','wTempo')">%
+    </div>
+    <div class="weight-row">
+      <label>NIL Spend Edge</label>
+      <input type="range" class="weight-slider" id="wNIL" min="0" max="100" value="13" oninput="syncWeight('wNIL','nNIL')">
+      <input type="number" class="weight-num" id="nNIL" min="0" max="100" value="13" oninput="syncWeight('nNIL','wNIL')">%
+    </div>
+    <div class="weight-row">
+      <label>🔥 Heating Up (L5)</label>
+      <input type="range" class="weight-slider" id="wHeat" min="0" max="100" value="10" oninput="syncWeight('wHeat','nHeat')">
+      <input type="number" class="weight-num" id="nHeat" min="0" max="100" value="10" oninput="syncWeight('nHeat','wHeat')">%
+    </div>
+    <div class="weights-total ok" id="weightsTotal">Total: 100% ✓</div>
+    <div class="wm-btns">
+      <button class="wm-btn wm-cancel" onclick="closeWeights()">Cancel</button>
+      <button class="wm-btn normalize" onclick="normalizeWeights()">Auto-Balance</button>
+      <button class="wm-btn apply" id="applyWeightsBtn" onclick="applyWeights()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Full Bracket View Modal -->
+<div class="fb-overlay" id="fbOverlay">
+  <div class="fb-modal-hdr">
+    <h2>🏀 Jimmy Liddar's 2026 Bracket</h2>
+    <div class="fb-modal-btns">
+      <button class="fb-mbtn fb-print" onclick="doPrintBracket()">🖨 <span class="vb-long">Print</span></button>
+      <button class="fb-mbtn fb-close" onclick="closeFullBracket()">✕ Close</button>
+    </div>
+  </div>
+  <div class="fb-modal-body" id="fbModalBody">
+    <!-- populated by showFullBracket() -->
+  </div>
+</div>
+
+<div class="tab-bar" id="tabBar">
+  <div class="tab" onclick="showRound(0,this)"><span class="tab-short">R64</span><span class="tab-long">Round of 64</span></div>
+  <div class="tab" onclick="showRound(1,this)"><span class="tab-short">R32</span><span class="tab-long">Round of 32</span></div>
+  <div class="tab active" onclick="showRound(2,this)"><span class="tab-short">S16</span><span class="tab-long">Sweet 16</span></div>
+  <div class="tab" onclick="showRound(3,this)"><span class="tab-short">E8</span><span class="tab-long">Elite Eight</span></div>
+  <div class="tab" onclick="showRound(4,this)"><span class="tab-short">F4</span><span class="tab-long">Final Four</span></div>
+  <div class="tab" onclick="showRound(5,this)"><span class="tab-short">🏆</span><span class="tab-long">Championship</span></div>
+</div>
+
+<!-- iOS-style game filter segmented control -->
+<div class="filter-bar" id="filterBar">
+  <button class="filter-seg fs-active" id="fsAll"   onclick="setGameFilter('all')"   ontouchstart="">
+    All <span class="filter-count" id="fcAll">—</span>
+  </button>
+  <button class="filter-seg fs-live"   id="fsLive"  onclick="setGameFilter('live')"  ontouchstart="">
+    <span class="filter-dot filter-dot-live"></span> Live
+    <span class="filter-count fc-live" id="fcLive">0</span>
+  </button>
+  <button class="filter-seg"           id="fsFinal" onclick="setGameFilter('final')" ontouchstart="">
+    Final <span class="filter-count" id="fcFinal">—</span>
+  </button>
+</div>
+
+<div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileDrawer()"></div>
+
+<div class="main-layout">
+  <div class="bracket-pane" id="bracketPane"></div>
+  <div class="analysis-pane" id="analysisPane">
+    <div class="ap-drag-bar" onclick="closeMobileDrawer()"><div class="drag-pill"></div></div>
+    <div class="ap-placeholder">
+      <h3>Tap Any Matchup</h3>
+      <p>Tap a game to see the full probability breakdown and make your pick. Stats update automatically as teams advance.</p>
+      <p style="margin-top:16px;font-size:.75rem;color:#334">Composite model based on<br>last 10 NCAA champions</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEAMS = {
+  "Duke": {
+    "seed": 1,
+    "region": "East",
+    "trank": 1,
+    "barthag": 0.9813,
+    "adjt": 65.8,
+    "adjoe": 128.2,
+    "adjde": 90.8,
+    "kp_rk": 1,
+    "kp_off": 4,
+    "kp_def": 2,
+    "conf": "ACC",
+    "rec": "32-2",
+    "ppg": 82.3,
+    "opp_ppg": 63.1,
+    "rpg": 40.3,
+    "apg": 16.9,
+    "spg": 7.8,
+    "fg": 49.1,
+    "three": 35.2,
+    "ft": 71.9,
+    "trap": "LIKELY IN",
+    "profile": "Meets all historic criteria",
+    "top25": "YES"
+  ,
+    "nil_spend": 12.0,
+    "starters": [{"name":"Cooper Flagg","pos":"F","ppg":19.2},{"name":"Kon Knueppel","pos":"G","ppg":14.8},{"name":"Tyrese Proctor","pos":"G","ppg":10.5},{"name":"Maliq Brown","pos":"F","ppg":7.8},{"name":"Patrick Ngongba II","pos":"C","ppg":8.4,"injured":true,"status":"Q"}]
+  },
+  "Siena": {
+    "seed": 16,
+    "region": "East",
+    "trank": 186,
+    "barthag": 0.4548,
+    "adjt": 64.6,
+    "adjoe": 107.2,
+    "adjde": 108.9,
+    "kp_rk": 192,
+    "kp_off": 208,
+    "kp_def": 175,
+    "conf": "MAAC",
+    "rec": "23-11",
+    "ppg": 70.5,
+    "opp_ppg": 65.7,
+    "rpg": 34.4,
+    "apg": 13.4,
+    "spg": 5.8,
+    "fg": 46.0,
+    "three": 30.1,
+    "ft": 77.3,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.2,
+    "starters": []
+  },
+  "Ohio St.": {
+    "seed": 8,
+    "region": "East",
+    "trank": 23,
+    "barthag": 0.9172,
+    "adjt": 66.2,
+    "adjoe": 125.2,
+    "adjde": 101.6,
+    "kp_rk": 26,
+    "kp_off": 17,
+    "kp_def": 53,
+    "conf": "B10",
+    "rec": "21-12",
+    "ppg": 79.8,
+    "opp_ppg": 72.8,
+    "rpg": 33.2,
+    "apg": 14.4,
+    "spg": 4.9,
+    "fg": 49.6,
+    "three": 36.1,
+    "ft": 76.9,
+    "trap": "POSSIBLE",
+    "profile": "High O, D outside top-50",
+    "top25": "NO"
+  ,
+    "nil_spend": 6.0,
+    "starters": []
+  },
+  "TCU": {
+    "seed": 9,
+    "region": "East",
+    "trank": 49,
+    "barthag": 0.8367,
+    "adjt": 67.6,
+    "adjoe": 114.9,
+    "adjde": 99.6,
+    "kp_rk": 43,
+    "kp_off": 81,
+    "kp_def": 22,
+    "conf": "B12",
+    "rec": "22-11",
+    "ppg": 78.3,
+    "opp_ppg": 72.1,
+    "rpg": 36.2,
+    "apg": 15.6,
+    "spg": 7.7,
+    "fg": 44.7,
+    "three": 32.8,
+    "ft": 70.9,
+    "trap": "POSSIBLE",
+    "profile": "Defense strength (#22)",
+    "top25": "NO"
+  ,
+    "nil_spend": 4.0,
+    "starters": [{"name":"Vasean Allette","pos":"G","ppg":19.3},{"name":"Micah Peavy","pos":"F","ppg":10.5},{"name":"Essiam Dotson","pos":"G","ppg":8.5},{"name":"Trevian Tennyson","pos":"G","ppg":7.2},{"name":"Xavier Cork","pos":"C","ppg":6.5}]
+  },
+  "St. John's": {
+    "seed": 5,
+    "region": "East",
+    "trank": 15,
+    "barthag": 0.9415,
+    "adjt": 69.6,
+    "adjoe": 119.8,
+    "adjde": 94.1,
+    "kp_rk": 16,
+    "kp_off": 44,
+    "kp_def": 12,
+    "conf": "BE",
+    "rec": "28-6",
+    "ppg": 81.6,
+    "opp_ppg": 70.0,
+    "rpg": 38.6,
+    "apg": 16.3,
+    "spg": 7.9,
+    "fg": 45.3,
+    "three": 33.0,
+    "ft": 73.1,
+    "trap": "LIKELY IN",
+    "profile": "D #12 is elite",
+    "top25": "YES"
+  ,
+    "nil_spend": 10.5,
+    "starters": [{"name":"RJ Luis Jr.","pos":"F","ppg":20.3},{"name":"Deivon Smith","pos":"G","ppg":12.8},{"name":"Simeon Wilcher","pos":"G","ppg":10.4},{"name":"Zuby Ejiofor","pos":"F","ppg":9.5},{"name":"Kadary Richmond","pos":"G","ppg":8.6}]
+  },
+  "Northern Iowa": {
+    "seed": 12,
+    "region": "East",
+    "trank": 69,
+    "barthag": 0.7752,
+    "adjt": 62.2,
+    "adjoe": 109.8,
+    "adjde": 98.6,
+    "kp_rk": 71,
+    "kp_off": 153,
+    "kp_def": 24,
+    "conf": "MVC",
+    "rec": "23-12",
+    "ppg": 69.9,
+    "opp_ppg": 61.3,
+    "rpg": 31.9,
+    "apg": 15.0,
+    "spg": 6.5,
+    "fg": 47.8,
+    "three": 35.3,
+    "ft": 70.3,
+    "trap": "POSSIBLE",
+    "profile": "Elite D #24 only",
+    "top25": "NO"
+  ,
+    "nil_spend": 1.5,
+    "starters": []
+  },
+  "Kansas": {
+    "seed": 4,
+    "region": "East",
+    "trank": 22,
+    "barthag": 0.9278,
+    "adjt": 67.6,
+    "adjoe": 117.8,
+    "adjde": 94.4,
+    "kp_rk": 21,
+    "kp_off": 57,
+    "kp_def": 10,
+    "conf": "B12",
+    "rec": "23-10",
+    "ppg": 75.6,
+    "opp_ppg": 69.4,
+    "rpg": 38.8,
+    "apg": 14.3,
+    "spg": 5.5,
+    "fg": 45.3,
+    "three": 34.5,
+    "ft": 76.8,
+    "trap": "POSSIBLE",
+    "profile": "D #10 is elite",
+    "top25": "NO"
+  ,
+    "nil_spend": 9.5,
+    "starters": [{"name":"Hunter Dickinson","pos":"C","ppg":18.2},{"name":"AJ Storr","pos":"G","ppg":14.5},{"name":"Zeke Mayo","pos":"G","ppg":13.8},{"name":"Shakeel Moore","pos":"G","ppg":7.4},{"name":"Flory Bidunga","pos":"C","ppg":8.5}]
+  },
+  "Cal Baptist": {
+    "seed": 13,
+    "region": "East",
+    "trank": 96,
+    "barthag": 0.689,
+    "adjt": 65.9,
+    "adjoe": 107.5,
+    "adjde": 100.3,
+    "kp_rk": 106,
+    "kp_off": 191,
+    "kp_def": 49,
+    "conf": "WAC",
+    "rec": "25-8",
+    "ppg": 73.0,
+    "opp_ppg": 67.6,
+    "rpg": 39.9,
+    "apg": 10.3,
+    "spg": 5.5,
+    "fg": 43.5,
+    "three": 34.1,
+    "ft": 72.4,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.3,
+    "starters": []
+  },
+  "Louisville": {
+    "seed": 6,
+    "region": "East",
+    "trank": 17,
+    "barthag": 0.9364,
+    "adjt": 69.7,
+    "adjoe": 124.0,
+    "adjde": 98.2,
+    "kp_rk": 19,
+    "kp_off": 20,
+    "kp_def": 25,
+    "conf": "ACC",
+    "rec": "23-10",
+    "ppg": 84.8,
+    "opp_ppg": 72.2,
+    "rpg": 38.5,
+    "apg": 17.1,
+    "spg": 6.9,
+    "fg": 47.1,
+    "three": 35.8,
+    "ft": 76.7,
+    "trap": "LIKELY IN",
+    "profile": "Both sides top-25",
+    "top25": "YES"
+  ,
+    "nil_spend": 10.5,
+    "starters": [{"name":"Terrence Edwards Jr.","pos":"G/F","ppg":14.2},{"name":"Chucky Hepburn","pos":"G","ppg":12.3},{"name":"Kasean Pryor","pos":"G","ppg":10.8},{"name":"James Scott","pos":"F","ppg":7.8},{"name":"Mikel Brown Jr.","pos":"G","ppg":18.5,"injured":true,"status":"OUT"}]
+  },
+  "South Florida": {
+    "seed": 11,
+    "region": "East",
+    "trank": 50,
+    "barthag": 0.8356,
+    "adjt": 71.4,
+    "adjoe": 116.8,
+    "adjde": 101.4,
+    "kp_rk": 49,
+    "kp_off": 58,
+    "kp_def": 48,
+    "conf": "Amer",
+    "rec": "25-8",
+    "ppg": 87.7,
+    "opp_ppg": 75.5,
+    "rpg": 42.7,
+    "apg": 17.2,
+    "spg": 9.2,
+    "fg": 43.9,
+    "three": 32.7,
+    "ft": 73.8,
+    "trap": "POSSIBLE",
+    "profile": "Both near top-50",
+    "top25": "NO"
+  ,
+    "nil_spend": 1.5,
+    "starters": []
+  },
+  "Michigan St.": {
+    "seed": 3,
+    "region": "East",
+    "trank": 13,
+    "barthag": 0.9438,
+    "adjt": 66.0,
+    "adjoe": 122.9,
+    "adjde": 96.2,
+    "kp_rk": 9,
+    "kp_off": 24,
+    "kp_def": 13,
+    "conf": "B10",
+    "rec": "25-7",
+    "ppg": 78.9,
+    "opp_ppg": 68.4,
+    "rpg": 39.8,
+    "apg": 18.5,
+    "spg": 5.1,
+    "fg": 47.3,
+    "three": 35.5,
+    "ft": 76.5,
+    "trap": "LIKELY IN",
+    "profile": "Both sides top-25",
+    "top25": "YES"
+  ,
+    "nil_spend": 5.5,
+    "starters": [{"name":"Jase Richardson","pos":"G","ppg":16.8},{"name":"Jeremy Fears Jr.","pos":"G","ppg":12.4},{"name":"Frankie Fidler","pos":"F","ppg":10.8},{"name":"Carson Cooper","pos":"C","ppg":9.2},{"name":"Divine Ugochukwu","pos":"G","ppg":11.5,"injured":true,"status":"OUT"}]
+  },
+  "North Dakota St.": {
+    "seed": 14,
+    "region": "East",
+    "trank": 114,
+    "barthag": 0.6391,
+    "adjt": 66.4,
+    "adjoe": 111.4,
+    "adjde": 106.0,
+    "kp_rk": 113,
+    "kp_off": 124,
+    "kp_def": 123,
+    "conf": "Sum",
+    "rec": "27-7",
+    "ppg": 80.7,
+    "opp_ppg": 69.6,
+    "rpg": 36.4,
+    "apg": 15.5,
+    "spg": 8.3,
+    "fg": 47.0,
+    "three": 36.1,
+    "ft": 73.3,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.3,
+    "starters": []
+  },
+  "UCLA": {
+    "seed": 7,
+    "region": "East",
+    "trank": 24,
+    "barthag": 0.9107,
+    "adjt": 64.7,
+    "adjoe": 124.6,
+    "adjde": 101.8,
+    "kp_rk": 27,
+    "kp_off": 22,
+    "kp_def": 54,
+    "conf": "B10",
+    "rec": "23-11",
+    "ppg": 77.7,
+    "opp_ppg": 71.0,
+    "rpg": 32.3,
+    "apg": 16.3,
+    "spg": 6.6,
+    "fg": 47.3,
+    "three": 38.1,
+    "ft": 75.6,
+    "trap": "POSSIBLE",
+    "profile": "O top-25, D #54",
+    "top25": "NO"
+  ,
+    "nil_spend": 5.5,
+    "starters": [{"name":"Eric Dailey Jr.","pos":"G","ppg":18.4},{"name":"Kobe Johnson","pos":"G","ppg":13.2},{"name":"Sebastian Mack","pos":"G","ppg":11.5},{"name":"Dylan Andrews","pos":"G","ppg":9.8},{"name":"Tyler Bilodeau","pos":"F","ppg":7.5,"injured":true,"status":"Q"}]
+  },
+  "UCF": {
+    "seed": 10,
+    "region": "East",
+    "trank": 57,
+    "barthag": 0.8116,
+    "adjt": 69.1,
+    "adjoe": 120.0,
+    "adjde": 105.7,
+    "kp_rk": 54,
+    "kp_off": 40,
+    "kp_def": 101,
+    "conf": "B12",
+    "rec": "21-11",
+    "ppg": 81.0,
+    "opp_ppg": 78.5,
+    "rpg": 37.2,
+    "apg": 15.8,
+    "spg": 5.7,
+    "fg": 46.9,
+    "three": 36.7,
+    "ft": 74.5,
+    "trap": "POSSIBLE",
+    "profile": "O #40 underrated",
+    "top25": "NO"
+  ,
+    "nil_spend": 2.5,
+    "starters": []
+  },
+  "Connecticut": {
+    "seed": 2,
+    "region": "East",
+    "trank": 9,
+    "barthag": 0.9517,
+    "adjt": 64.6,
+    "adjoe": 123.1,
+    "adjde": 95.0,
+    "kp_rk": 12,
+    "kp_off": 30,
+    "kp_def": 11,
+    "conf": "BE",
+    "rec": "29-5",
+    "ppg": 77.5,
+    "opp_ppg": 65.1,
+    "rpg": 36.6,
+    "apg": 18.4,
+    "spg": 6.9,
+    "fg": 48.3,
+    "three": 34.8,
+    "ft": 71.7,
+    "trap": "POSSIBLE",
+    "profile": "D #11 elite; O #30 borderline",
+    "top25": "NO"
+  ,
+    "nil_spend": 5.5,
+    "starters": [{"name":"Liam McNeeley","pos":"G","ppg":15.8},{"name":"Solo Ball","pos":"G","ppg":14.2},{"name":"Alex Karaban","pos":"F","ppg":11.5},{"name":"Hassan Diarra","pos":"G","ppg":10.8},{"name":"Tarris Reed Jr.","pos":"C","ppg":9.3}]
+  },
+  "Furman": {
+    "seed": 15,
+    "region": "East",
+    "trank": 195,
+    "barthag": 0.4442,
+    "adjt": 65.8,
+    "adjoe": 106.9,
+    "adjde": 109.0,
+    "kp_rk": 190,
+    "kp_off": 200,
+    "kp_def": 182,
+    "conf": "SC",
+    "rec": "22-12",
+    "ppg": 76.5,
+    "opp_ppg": 70.5,
+    "rpg": 38.0,
+    "apg": 15.6,
+    "spg": 4.8,
+    "fg": 47.7,
+    "three": 33.5,
+    "ft": 67.4,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.5,
+    "starters": []
+  },
+  "Arizona": {
+    "seed": 1,
+    "region": "West",
+    "trank": 3,
+    "barthag": 0.9776,
+    "adjt": 70.0,
+    "adjoe": 126.9,
+    "adjde": 91.4,
+    "kp_rk": 3,
+    "kp_off": 5,
+    "kp_def": 3,
+    "conf": "B12",
+    "rec": "32-2",
+    "ppg": 86.1,
+    "opp_ppg": 68.8,
+    "rpg": 42.5,
+    "apg": 16.9,
+    "spg": 7.8,
+    "fg": 50.3,
+    "three": 35.1,
+    "ft": 72.6,
+    "trap": "LIKELY IN",
+    "profile": "Best balance in field",
+    "top25": "YES"
+  ,
+    "nil_spend": 6.5,
+    "starters": [{"name":"KJ Lewis","pos":"G","ppg":17.8},{"name":"Caleb Love","pos":"G","ppg":15.5},{"name":"Carter Bryant","pos":"F","ppg":11.3},{"name":"Jaden Bradley","pos":"G","ppg":8.5},{"name":"Motiejus Krivas","pos":"C","ppg":9.4}]
+  },
+  "LIU": {
+    "seed": 16,
+    "region": "West",
+    "trank": 235,
+    "barthag": 0.3404,
+    "adjt": 67.8,
+    "adjoe": 103.6,
+    "adjde": 109.8,
+    "kp_rk": 216,
+    "kp_off": 239,
+    "kp_def": 186,
+    "conf": "NEC",
+    "rec": "24-10",
+    "ppg": 74.1,
+    "opp_ppg": 71.1,
+    "rpg": 35.0,
+    "apg": 13.6,
+    "spg": 7.8,
+    "fg": 48.1,
+    "three": 35.6,
+    "ft": 66.7,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.2,
+    "starters": []
+  },
+  "Villanova": {
+    "seed": 8,
+    "region": "West",
+    "trank": 36,
+    "barthag": 0.8803,
+    "adjt": 64.9,
+    "adjoe": 119.6,
+    "adjde": 100.5,
+    "kp_rk": 33,
+    "kp_off": 41,
+    "kp_def": 35,
+    "conf": "BE",
+    "rec": "24-8",
+    "ppg": 77.2,
+    "opp_ppg": 70.8,
+    "rpg": 34.5,
+    "apg": 15.5,
+    "spg": 7.4,
+    "fg": 45.8,
+    "three": 34.7,
+    "ft": 70.2,
+    "trap": "OUT",
+    "profile": "Borderline both sides",
+    "top25": "NO"
+  ,
+    "nil_spend": 3.5,
+    "starters": []
+  },
+  "Utah St.": {
+    "seed": 9,
+    "region": "West",
+    "trank": 28,
+    "barthag": 0.8952,
+    "adjt": 67.6,
+    "adjoe": 123.0,
+    "adjde": 102.1,
+    "kp_rk": 30,
+    "kp_off": 28,
+    "kp_def": 44,
+    "conf": "MWC",
+    "rec": "28-6",
+    "ppg": 82.5,
+    "opp_ppg": 70.4,
+    "rpg": 34.6,
+    "apg": 17.6,
+    "spg": 8.8,
+    "fg": 50.0,
+    "three": 35.7,
+    "ft": 70.8,
+    "trap": "POSSIBLE",
+    "profile": "KP edge in 8/9 game",
+    "top25": "NO"
+  ,
+    "nil_spend": 2.5,
+    "starters": [{"name":"Karson Templin","pos":"G","ppg":19.5},{"name":"Mason Falslev","pos":"F","ppg":14.3},{"name":"Ian Martinez","pos":"G","ppg":11.2},{"name":"Tucker Anderson","pos":"G","ppg":8.6},{"name":"Great Osobor","pos":"F","ppg":7.4}]
+  },
+  "Wisconsin": {
+    "seed": 5,
+    "region": "West",
+    "trank": 21,
+    "barthag": 0.9294,
+    "adjt": 68.7,
+    "adjoe": 127.2,
+    "adjde": 101.6,
+    "kp_rk": 22,
+    "kp_off": 11,
+    "kp_def": 51,
+    "conf": "B10",
+    "rec": "24-10",
+    "ppg": 83.0,
+    "opp_ppg": 75.9,
+    "rpg": 35.5,
+    "apg": 16.0,
+    "spg": 5.7,
+    "fg": 45.1,
+    "three": 35.7,
+    "ft": 79.5,
+    "trap": "POSSIBLE",
+    "profile": "O #11; D #51 weakness",
+    "top25": "NO"
+  ,
+    "nil_spend": 5.0,
+    "starters": []
+  },
+  "High Point": {
+    "seed": 12,
+    "region": "West",
+    "trank": 93,
+    "barthag": 0.6993,
+    "adjt": 69.9,
+    "adjoe": 115.7,
+    "adjde": 107.5,
+    "kp_rk": 92,
+    "kp_off": 66,
+    "kp_def": 161,
+    "conf": "BSth",
+    "rec": "30-4",
+    "ppg": 90.0,
+    "opp_ppg": 70.3,
+    "rpg": 36.4,
+    "apg": 16.3,
+    "spg": 10.9,
+    "fg": 49.4,
+    "three": 35.8,
+    "ft": 74.1,
+    "trap": "OUT",
+    "profile": "O only",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.5,
+    "starters": [{"name":"Zion Cruz","pos":"G","ppg":20.3},{"name":"John-Michael Wright","pos":"G","ppg":12.5},{"name":"Braxton Reynolds","pos":"F","ppg":10.2},{"name":"Adam Navrkal","pos":"C","ppg":8.5},{"name":"Jahnathan Lamothe","pos":"G","ppg":7.8}]
+  },
+  "Arkansas": {
+    "seed": 4,
+    "region": "West",
+    "trank": 19,
+    "barthag": 0.9337,
+    "adjt": 71.0,
+    "adjoe": 127.9,
+    "adjde": 101.6,
+    "kp_rk": 18,
+    "kp_off": 6,
+    "kp_def": 52,
+    "conf": "SEC",
+    "rec": "26-8",
+    "ppg": 89.9,
+    "opp_ppg": 80.1,
+    "rpg": 36.1,
+    "apg": 17.0,
+    "spg": 7.3,
+    "fg": 50.0,
+    "three": 38.2,
+    "ft": 74.5,
+    "trap": "UNLIKELY",
+    "profile": "O #6 but D #52 red flag",
+    "top25": "NO"
+  ,
+    "nil_spend": 11.5,
+    "starters": [{"name":"Adou Thiero","pos":"G/F","ppg":17.3},{"name":"Johnell Davis","pos":"G","ppg":16.5},{"name":"DJ Wagner","pos":"G","ppg":11.8},{"name":"Jonas Aidoo","pos":"C","ppg":8.4},{"name":"Layden Blocker","pos":"G","ppg":7.2}]
+  },
+  "Hawaii": {
+    "seed": 13,
+    "region": "West",
+    "trank": 116,
+    "barthag": 0.6352,
+    "adjt": 69.6,
+    "adjoe": 106.9,
+    "adjde": 101.8,
+    "kp_rk": 107,
+    "kp_off": 207,
+    "kp_def": 42,
+    "conf": "BW",
+    "rec": "24-8",
+    "ppg": 79.6,
+    "opp_ppg": 69.7,
+    "rpg": 39.3,
+    "apg": 13.7,
+    "spg": 6.6,
+    "fg": 46.2,
+    "three": 31.7,
+    "ft": 74.0,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 1.0,
+    "starters": []
+  },
+  "BYU": {
+    "seed": 6,
+    "region": "West",
+    "trank": 33,
+    "barthag": 0.8866,
+    "adjt": 69.8,
+    "adjoe": 124.8,
+    "adjde": 104.3,
+    "kp_rk": 23,
+    "kp_off": 10,
+    "kp_def": 57,
+    "conf": "B12",
+    "rec": "23-11",
+    "ppg": 83.9,
+    "opp_ppg": 75.3,
+    "rpg": 38.3,
+    "apg": 13.5,
+    "spg": 7.2,
+    "fg": 47.7,
+    "three": 34.7,
+    "ft": 75.1,
+    "trap": "POSSIBLE",
+    "profile": "O #10; D #57 concern",
+    "top25": "NO"
+  ,
+    "nil_spend": 5.5,
+    "starters": []
+  },
+  "N.C. State": {
+    "seed": 11,
+    "region": "West",
+    "trank": 38,
+    "barthag": 0.8761,
+    "adjt": 69.1,
+    "adjoe": 124.1,
+    "adjde": 104.7,
+    "kp_rk": 34,
+    "kp_off": 19,
+    "kp_def": 86,
+    "conf": "ACC",
+    "rec": "20-13",
+    "ppg": 83.7,
+    "opp_ppg": 76.5,
+    "rpg": 34.5,
+    "apg": 15.6,
+    "spg": 8.1,
+    "fg": 46.8,
+    "three": 38.6,
+    "ft": 76.2,
+    "trap": "POSSIBLE",
+    "profile": "O #19; D outside top-50",
+    "top25": "NO"
+  ,
+    "nil_spend": 1.0,
+    "starters": []
+  },
+  "Texas": {
+    "seed": 11,
+    "region": "West",
+    "trank": 42,
+    "barthag": 0.8680,
+    "adjt": 69.8,
+    "adjoe": 122.1,
+    "adjde": 104.9,
+    "kp_rk": 41,
+    "kp_off": 48,
+    "kp_def": 88,
+    "conf": "B12",
+    "rec": "18-15",
+    "ppg": 80.2,
+    "opp_ppg": 76.8,
+    "rpg": 34.2,
+    "apg": 14.8,
+    "spg": 6.9,
+    "fg": 45.4,
+    "three": 35.6,
+    "ft": 73.1,
+    "trap": "POSSIBLE",
+    "profile": "FF vs N.C. State; B12 experience",
+    "top25": "NO"
+  ,
+    "nil_spend": 4.5,
+    "starters": [{"name":"Tre Johnson","pos":"G","ppg":16.8},{"name":"Arthur Kaluma","pos":"F","ppg":14.5},{"name":"Max Abmas","pos":"G","ppg":11.5},{"name":"Ze'Rik Onyema","pos":"F","ppg":8.5},{"name":"Chendall Weaver","pos":"G","ppg":9.2}]
+  },
+  "Gonzaga": {
+    "seed": 3,
+    "region": "West",
+    "trank": 11,
+    "barthag": 0.9446,
+    "adjt": 68.9,
+    "adjoe": 120.3,
+    "adjde": 94.0,
+    "kp_rk": 10,
+    "kp_off": 29,
+    "kp_def": 9,
+    "conf": "WCC",
+    "rec": "30-3",
+    "ppg": 85.1,
+    "opp_ppg": 66.0,
+    "rpg": 39.9,
+    "apg": 18.3,
+    "spg": 8.5,
+    "fg": 51.0,
+    "three": 33.7,
+    "ft": 70.3,
+    "trap": "POSSIBLE",
+    "profile": "D #9 elite; O #29 borderline",
+    "top25": "NO"
+  ,
+    "nil_spend": 3.0,
+    "starters": [{"name":"Ryan Nembhard","pos":"G","ppg":19.5},{"name":"Anton Watson","pos":"F","ppg":14.8},{"name":"Graham Ike","pos":"C","ppg":14.5},{"name":"Ben Gregg","pos":"F","ppg":11.3},{"name":"Braden Huff","pos":"F","ppg":13.5,"injured":true,"status":"OUT"}]
+  },
+  "Kennesaw St.": {
+    "seed": 14,
+    "region": "West",
+    "trank": 146,
+    "barthag": 0.5338,
+    "adjt": 71.3,
+    "adjoe": 110.8,
+    "adjde": 109.5,
+    "kp_rk": 163,
+    "kp_off": 144,
+    "kp_def": 195,
+    "conf": "CUSA",
+    "rec": "21-13",
+    "ppg": 83.4,
+    "opp_ppg": 76.1,
+    "rpg": 40.3,
+    "apg": 14.3,
+    "spg": 7.1,
+    "fg": 44.7,
+    "three": 35.2,
+    "ft": 69.6,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.3,
+    "starters": []
+  },
+  "Miami FL": {
+    "seed": 7,
+    "region": "West",
+    "trank": 35,
+    "barthag": 0.8844,
+    "adjt": 67.9,
+    "adjoe": 121.1,
+    "adjde": 101.5,
+    "kp_rk": 31,
+    "kp_off": 33,
+    "kp_def": 38,
+    "conf": "ACC",
+    "rec": "25-8",
+    "ppg": 81.9,
+    "opp_ppg": 71.2,
+    "rpg": 37.3,
+    "apg": 16.1,
+    "spg": 7.9,
+    "fg": 50.2,
+    "three": 34.9,
+    "ft": 68.8,
+    "trap": "OUT",
+    "profile": "Both near top-40",
+    "top25": "NO"
+  ,
+    "nil_spend": 3.5,
+    "starters": [{"name":"Matthew Cleveland","pos":"F","ppg":17.5},{"name":"Wooga Poplar","pos":"G","ppg":14.2},{"name":"Kyshawn George","pos":"G","ppg":12.3},{"name":"Norchad Omier","pos":"C","ppg":10.8},{"name":"Bensley Joseph","pos":"G","ppg":7.5}]
+  },
+  "Missouri": {
+    "seed": 10,
+    "region": "West",
+    "trank": 46,
+    "barthag": 0.8515,
+    "adjt": 66.4,
+    "adjoe": 119.9,
+    "adjde": 103.0,
+    "kp_rk": 52,
+    "kp_off": 50,
+    "kp_def": 77,
+    "conf": "SEC",
+    "rec": "20-12",
+    "ppg": 79.7,
+    "opp_ppg": 75.3,
+    "rpg": 35.6,
+    "apg": 14.1,
+    "spg": 6.7,
+    "fg": 49.1,
+    "three": 35.9,
+    "ft": 68.3,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 4.0,
+    "starters": []
+  },
+  "Purdue": {
+    "seed": 2,
+    "region": "West",
+    "trank": 8,
+    "barthag": 0.9636,
+    "adjt": 64.4,
+    "adjoe": 133.3,
+    "adjde": 100.3,
+    "kp_rk": 8,
+    "kp_off": 2,
+    "kp_def": 36,
+    "conf": "B10",
+    "rec": "27-8",
+    "ppg": 81.7,
+    "opp_ppg": 70.1,
+    "rpg": 35.4,
+    "apg": 19.9,
+    "spg": 5.5,
+    "fg": 50.1,
+    "three": 38.2,
+    "ft": 74.3,
+    "trap": "POSSIBLE",
+    "profile": "O #2; D #36 question mark",
+    "top25": "NO"
+  ,
+    "nil_spend": 5.5,
+    "starters": [{"name":"Braden Smith","pos":"G","ppg":15.3},{"name":"Trey Kaufman-Renn","pos":"F/C","ppg":15.8},{"name":"Fletcher Loyer","pos":"G","ppg":11.5},{"name":"Camden Heide","pos":"F","ppg":8.3},{"name":"Mason Gillis","pos":"F","ppg":7.8}]
+  },
+  "Queens": {
+    "seed": 15,
+    "region": "West",
+    "trank": 198,
+    "barthag": 0.4399,
+    "adjt": 69.5,
+    "adjoe": 114.7,
+    "adjde": 117.1,
+    "kp_rk": 181,
+    "kp_off": 77,
+    "kp_def": 322,
+    "conf": "ASun",
+    "rec": "21-13",
+    "ppg": 84.9,
+    "opp_ppg": 82.9,
+    "rpg": 33.8,
+    "apg": 15.9,
+    "spg": 5.9,
+    "fg": 48.4,
+    "three": 35.3,
+    "ft": 73.9,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.3,
+    "starters": []
+  },
+  "Michigan": {
+    "seed": 1,
+    "region": "Midwest",
+    "trank": 2,
+    "barthag": 0.9799,
+    "adjt": 71.2,
+    "adjoe": 127.7,
+    "adjde": 91.0,
+    "kp_rk": 2,
+    "kp_off": 8,
+    "kp_def": 1,
+    "conf": "B10",
+    "rec": "31-3",
+    "ppg": 86.8,
+    "opp_ppg": 69.2,
+    "rpg": 40.0,
+    "apg": 18.5,
+    "spg": 5.7,
+    "fg": 50.5,
+    "three": 36.0,
+    "ft": 76.6,
+    "trap": "LIKELY IN",
+    "profile": "#1 D in nation",
+    "top25": "YES"
+  ,
+    "nil_spend": 10.5,
+    "starters": [{"name":"Tre Donaldson","pos":"G","ppg":17.5},{"name":"Morez Johnson Jr.","pos":"F","ppg":14.8},{"name":"Danny Wolf","pos":"C","ppg":14.5},{"name":"Roddy Gayle Jr.","pos":"G","ppg":11.3},{"name":"Will Tschetter","pos":"G","ppg":8.5}]
+  },
+  "UMBC": {
+    "seed": 16,
+    "region": "Midwest",
+    "trank": 184,
+    "barthag": 0.4563,
+    "adjt": 66.0,
+    "adjoe": 107.6,
+    "adjde": 109.2,
+    "kp_rk": 185,
+    "kp_off": 184,
+    "kp_def": 193,
+    "conf": "AE",
+    "rec": "24-8",
+    "ppg": 76.2,
+    "opp_ppg": 67.0,
+    "rpg": 35.5,
+    "apg": 12.2,
+    "spg": 5.0,
+    "fg": 47.0,
+    "three": 35.8,
+    "ft": 76.4,
+    "trap": "OUT",
+    "profile": "FF vs Howard",
+    "top25": "NO"
+  ,
+    "nil_spend": 1.0,
+    "starters": []
+  },
+  "Howard": {
+    "seed": 16,
+    "region": "Midwest",
+    "trank": 218,
+    "barthag": 0.4021,
+    "adjt": 68.2,
+    "adjoe": 105.8,
+    "adjde": 110.6,
+    "kp_rk": 207,
+    "kp_off": 226,
+    "kp_def": 200,
+    "conf": "MEAC",
+    "rec": "21-11",
+    "ppg": 72.3,
+    "opp_ppg": 69.4,
+    "rpg": 33.8,
+    "apg": 12.6,
+    "spg": 5.2,
+    "fg": 44.5,
+    "three": 32.1,
+    "ft": 71.8,
+    "trap": "OUT",
+    "profile": "FF vs UMBC",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.5,
+    "starters": []
+  },
+  "Georgia": {
+    "seed": 8,
+    "region": "Midwest",
+    "trank": 37,
+    "barthag": 0.8777,
+    "adjt": 72.0,
+    "adjoe": 124.4,
+    "adjde": 104.8,
+    "kp_rk": 32,
+    "kp_off": 16,
+    "kp_def": 80,
+    "conf": "SEC",
+    "rec": "22-10",
+    "ppg": 89.8,
+    "opp_ppg": 79.2,
+    "rpg": 38.2,
+    "apg": 14.9,
+    "spg": 8.4,
+    "fg": 47.2,
+    "three": 34.0,
+    "ft": 75.9,
+    "trap": "OUT",
+    "profile": "O #16; D #80 liability",
+    "top25": "NO"
+  ,
+    "nil_spend": 4.5,
+    "starters": []
+  },
+  "Saint Louis": {
+    "seed": 9,
+    "region": "Midwest",
+    "trank": 43,
+    "barthag": 0.8573,
+    "adjt": 71.0,
+    "adjoe": 119.5,
+    "adjde": 102.3,
+    "kp_rk": 41,
+    "kp_off": 51,
+    "kp_def": 41,
+    "conf": "A10",
+    "rec": "28-5",
+    "ppg": 87.2,
+    "opp_ppg": 69.5,
+    "rpg": 39.9,
+    "apg": 18.3,
+    "spg": 7.2,
+    "fg": 50.9,
+    "three": 39.8,
+    "ft": 73.2,
+    "trap": "OUT",
+    "profile": "Balanced but mid-tier",
+    "top25": "NO"
+  ,
+    "nil_spend": 2.0,
+    "starters": [{"name":"Gibson Jimerson","pos":"G","ppg":18.5},{"name":"Javonte Perkins","pos":"G","ppg":14.5},{"name":"Terrence Hargrove Jr.","pos":"F","ppg":10.2},{"name":"Hasahn French","pos":"F","ppg":8.5},{"name":"Fred Thatch Jr.","pos":"G","ppg":7.8}]
+  },
+  "Texas Tech": {
+    "seed": 5,
+    "region": "Midwest",
+    "trank": 12,
+    "barthag": 0.9439,
+    "adjt": 66.4,
+    "adjoe": 126.3,
+    "adjde": 98.8,
+    "kp_rk": 20,
+    "kp_off": 12,
+    "kp_def": 33,
+    "conf": "B12",
+    "rec": "22-10",
+    "ppg": 80.4,
+    "opp_ppg": 72.6,
+    "rpg": 36.9,
+    "apg": 15.8,
+    "spg": 5.8,
+    "fg": 47.0,
+    "three": 39.3,
+    "ft": 70.2,
+    "trap": "OUT",
+    "profile": "D #33 borderline",
+    "top25": "NO"
+  ,
+    "nil_spend": 10.5,
+    "starters": [{"name":"Pop Isaacs","pos":"G","ppg":18.5},{"name":"Darrion Williams","pos":"F","ppg":14.8},{"name":"Kerwin Walton","pos":"G","ppg":12.3},{"name":"Warren Washington","pos":"C","ppg":11.5},{"name":"JT Toppin","pos":"F","ppg":21.8,"injured":true,"status":"OUT"}]
+  },
+  "Akron": {
+    "seed": 12,
+    "region": "Midwest",
+    "trank": 71,
+    "barthag": 0.7725,
+    "adjt": 70.3,
+    "adjoe": 117.2,
+    "adjde": 105.4,
+    "kp_rk": 64,
+    "kp_off": 54,
+    "kp_def": 113,
+    "conf": "MAC",
+    "rec": "29-5",
+    "ppg": 88.4,
+    "opp_ppg": 73.5,
+    "rpg": 38.1,
+    "apg": 18.4,
+    "spg": 7.5,
+    "fg": 50.3,
+    "three": 38.1,
+    "ft": 73.6,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.5,
+    "starters": []
+  },
+  "Alabama": {
+    "seed": 4,
+    "region": "Midwest",
+    "trank": 18,
+    "barthag": 0.9344,
+    "adjt": 73.1,
+    "adjoe": 129.5,
+    "adjde": 102.8,
+    "kp_rk": 17,
+    "kp_off": 3,
+    "kp_def": 67,
+    "conf": "SEC",
+    "rec": "23-9",
+    "ppg": 91.7,
+    "opp_ppg": 83.5,
+    "rpg": 40.6,
+    "apg": 16.1,
+    "spg": 6.4,
+    "fg": 45.8,
+    "three": 35.6,
+    "ft": 76.4,
+    "trap": "UNLIKELY",
+    "profile": "O #3 but D #67 is a liability",
+    "top25": "NO"
+  ,
+    "nil_spend": 7.5,
+    "starters": [{"name":"Mark Sears","pos":"G","ppg":21.8},{"name":"Labaron Philon","pos":"G","ppg":16.5},{"name":"Grant Nelson","pos":"F","ppg":14.8},{"name":"Cliff Omoruyi","pos":"C","ppg":10.5},{"name":"Aden Holloway","pos":"G","ppg":14.5,"injured":true,"status":"OUT"}]
+  },
+  "Hofstra": {
+    "seed": 13,
+    "region": "Midwest",
+    "trank": 91,
+    "barthag": 0.7054,
+    "adjt": 64.7,
+    "adjoe": 113.2,
+    "adjde": 104.9,
+    "kp_rk": 88,
+    "kp_off": 89,
+    "kp_def": 96,
+    "conf": "CAA",
+    "rec": "24-10",
+    "ppg": 75.6,
+    "opp_ppg": 66.1,
+    "rpg": 39.3,
+    "apg": 12.8,
+    "spg": 5.0,
+    "fg": 44.4,
+    "three": 37.1,
+    "ft": 74.1,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.5,
+    "starters": []
+  },
+  "Tennessee": {
+    "seed": 6,
+    "region": "Midwest",
+    "trank": 16,
+    "barthag": 0.9408,
+    "adjt": 65.2,
+    "adjoe": 121.5,
+    "adjde": 95.5,
+    "kp_rk": 15,
+    "kp_off": 37,
+    "kp_def": 15,
+    "conf": "SEC",
+    "rec": "22-11",
+    "ppg": 79.5,
+    "opp_ppg": 69.4,
+    "rpg": 42.6,
+    "apg": 16.9,
+    "spg": 7.5,
+    "fg": 46.3,
+    "three": 33.5,
+    "ft": 68.4,
+    "trap": "UNLIKELY",
+    "profile": "All D #15; O #37 limits ceiling",
+    "top25": "NO"
+  ,
+    "nil_spend": 7.5,
+    "starters": [{"name":"Chaz Lanier","pos":"G","ppg":21.5},{"name":"Zakai Zeigler","pos":"G","ppg":11.8},{"name":"Jordan Gainey","pos":"G","ppg":14.2},{"name":"Felix Okpara","pos":"C","ppg":10.8},{"name":"JP Estrella","pos":"F","ppg":8.5}]
+  },
+  "SMU": {
+    "seed": 11,
+    "region": "Midwest",
+    "trank": 42,
+    "barthag": 0.8608,
+    "adjt": 68.6,
+    "adjoe": 123.0,
+    "adjde": 105.0,
+    "kp_rk": 42,
+    "kp_off": 26,
+    "kp_def": 91,
+    "conf": "ACC",
+    "rec": "20-13",
+    "ppg": 84.2,
+    "opp_ppg": 77.6,
+    "rpg": 37.7,
+    "apg": 16.9,
+    "spg": 7.1,
+    "fg": 48.9,
+    "three": 37.0,
+    "ft": 72.8,
+    "trap": "POSSIBLE",
+    "profile": "FF vs Miami OH",
+    "top25": "NO"
+  ,
+    "nil_spend": 1.0,
+    "starters": []
+  },
+  "Miami OH": {
+    "seed": 11,
+    "region": "Midwest",
+    "trank": 78,
+    "barthag": 0.7541,
+    "adjt": 70.2,
+    "adjoe": 115.8,
+    "adjde": 103.4,
+    "kp_rk": 79,
+    "kp_off": 88,
+    "kp_def": 66,
+    "conf": "MAC",
+    "rec": "26-8",
+    "ppg": 78.4,
+    "opp_ppg": 72.1,
+    "rpg": 35.9,
+    "apg": 15.3,
+    "spg": 6.8,
+    "fg": 46.3,
+    "three": 34.9,
+    "ft": 74.2,
+    "trap": "POSSIBLE",
+    "profile": "FF vs SMU; solid MAC defense",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.8,
+    "starters": []
+  },
+  "Virginia": {
+    "seed": 3,
+    "region": "Midwest",
+    "trank": 14,
+    "barthag": 0.9427,
+    "adjt": 65.6,
+    "adjoe": 122.3,
+    "adjde": 95.8,
+    "kp_rk": 13,
+    "kp_off": 27,
+    "kp_def": 16,
+    "conf": "ACC",
+    "rec": "29-5",
+    "ppg": 80.6,
+    "opp_ppg": 68.4,
+    "rpg": 40.2,
+    "apg": 16.6,
+    "spg": 6.4,
+    "fg": 46.6,
+    "three": 36.4,
+    "ft": 72.6,
+    "trap": "POSSIBLE",
+    "profile": "Both borderline top-25; trademark defense",
+    "top25": "YES BORDERLINE"
+  },
+  "Wright St.": {
+    "seed": 14,
+    "region": "Midwest",
+    "trank": 130,
+    "barthag": 0.5859,
+    "adjt": 67.0,
+    "adjoe": 112.4,
+    "adjde": 109.0,
+    "kp_rk": 140,
+    "kp_off": 117,
+    "kp_def": 194,
+    "conf": "Horz",
+    "rec": "23-11",
+    "ppg": 80.7,
+    "opp_ppg": 73.4,
+    "rpg": 35.4,
+    "apg": 13.8,
+    "spg": 7.4,
+    "fg": 49.2,
+    "three": 37.1,
+    "ft": 72.7,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.4,
+    "starters": []
+  },
+  "Kentucky": {
+    "seed": 7,
+    "region": "Midwest",
+    "trank": 31,
+    "barthag": 0.89,
+    "adjt": 68.3,
+    "adjoe": 119.9,
+    "adjde": 100.0,
+    "kp_rk": 28,
+    "kp_off": 39,
+    "kp_def": 27,
+    "conf": "SEC",
+    "rec": "21-13",
+    "ppg": 80.8,
+    "opp_ppg": 73.8,
+    "rpg": 37.5,
+    "apg": 16.0,
+    "spg": 7.1,
+    "fg": 46.3,
+    "three": 33.5,
+    "ft": 72.5,
+    "trap": "OUT",
+    "profile": "Both near top-40",
+    "top25": "NO"
+  ,
+    "nil_spend": 22.0,
+    "starters": [{"name":"Jayden Quaintance","pos":"F","ppg":16.8},{"name":"Denzel Aberdeen","pos":"G","ppg":15.5},{"name":"Andrew Carr","pos":"F","ppg":12.5},{"name":"Travis Perry","pos":"G","ppg":10.5},{"name":"Jaland Lowe","pos":"G","ppg":13.5,"injured":true,"status":"OUT"}]
+  },
+  "Santa Clara": {
+    "seed": 10,
+    "region": "Midwest",
+    "trank": 29,
+    "barthag": 0.895,
+    "adjt": 69.3,
+    "adjoe": 125.0,
+    "adjde": 103.8,
+    "kp_rk": 35,
+    "kp_off": 23,
+    "kp_def": 82,
+    "conf": "WCC",
+    "rec": "26-8",
+    "ppg": 82.9,
+    "opp_ppg": 72.4,
+    "rpg": 35.7,
+    "apg": 16.8,
+    "spg": 8.9,
+    "fg": 46.9,
+    "three": 34.8,
+    "ft": 73.3,
+    "trap": "POSSIBLE",
+    "profile": "O #23; upset alert",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.5,
+    "starters": []
+  },
+  "Iowa St.": {
+    "seed": 2,
+    "region": "Midwest",
+    "trank": 7,
+    "barthag": 0.9655,
+    "adjt": 67.0,
+    "adjoe": 123.8,
+    "adjde": 92.6,
+    "kp_rk": 6,
+    "kp_off": 21,
+    "kp_def": 4,
+    "conf": "B12",
+    "rec": "27-7",
+    "ppg": 81.8,
+    "opp_ppg": 65.1,
+    "rpg": 35.6,
+    "apg": 17.2,
+    "spg": 9.0,
+    "fg": 49.0,
+    "three": 38.1,
+    "ft": 65.5,
+    "trap": "LIKELY IN",
+    "profile": "D #4 drives ranking",
+    "top25": "YES"
+  ,
+    "nil_spend": 6.0,
+    "starters": [{"name":"Tamin Lipsey","pos":"G","ppg":15.8},{"name":"Curtis Jones","pos":"G","ppg":14.5},{"name":"Milan Momcilovic","pos":"F","ppg":12.8},{"name":"Keshon Gilbert","pos":"G","ppg":11.5},{"name":"Osun Osunniyi","pos":"C","ppg":10.5}]
+  },
+  "Tennessee St.": {
+    "seed": 15,
+    "region": "Midwest",
+    "trank": 218,
+    "barthag": 0.3951,
+    "adjt": 70.1,
+    "adjoe": 107.8,
+    "adjde": 111.9,
+    "kp_rk": 187,
+    "kp_off": 173,
+    "kp_def": 212,
+    "conf": "OVC",
+    "rec": "23-9",
+    "ppg": 80.5,
+    "opp_ppg": 73.3,
+    "rpg": 38.0,
+    "apg": 13.2,
+    "spg": 9.4,
+    "fg": 45.8,
+    "three": 32.7,
+    "ft": 76.4,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.4,
+    "starters": []
+  },
+  "Florida": {
+    "seed": 1,
+    "region": "South",
+    "trank": 4,
+    "barthag": 0.9732,
+    "adjt": 70.4,
+    "adjoe": 126.1,
+    "adjde": 92.3,
+    "kp_rk": 4,
+    "kp_off": 9,
+    "kp_def": 6,
+    "conf": "SEC",
+    "rec": "26-7",
+    "ppg": 86.8,
+    "opp_ppg": 72.0,
+    "rpg": 45.4,
+    "apg": 16.6,
+    "spg": 6.7,
+    "fg": 47.8,
+    "three": 31.0,
+    "ft": 71.6,
+    "trap": "LIKELY IN",
+    "profile": "Meets all historic criteria",
+    "top25": "YES"
+  ,
+    "nil_spend": 7.5,
+    "starters": [{"name":"Walter Clayton Jr.","pos":"G","ppg":18.5},{"name":"Will Richard","pos":"G","ppg":14.8},{"name":"Alex Condon","pos":"F/C","ppg":12.5},{"name":"Thomas Haugh","pos":"F","ppg":10.5},{"name":"Rueben Chinyelu","pos":"C","ppg":8.5}]
+  },
+  "Prairie View A&M": {
+    "seed": 16,
+    "region": "South",
+    "trank": 281,
+    "barthag": 0.2551,
+    "adjt": 70.9,
+    "adjoe": 101.5,
+    "adjde": 111.4,
+    "kp_rk": 288,
+    "kp_off": 310,
+    "kp_def": 231,
+    "conf": "SWAC",
+    "rec": "18-17",
+    "ppg": 78.9,
+    "opp_ppg": 76.1,
+    "rpg": 34.0,
+    "apg": 11.9,
+    "spg": 7.9,
+    "fg": 44.4,
+    "three": 32.7,
+    "ft": 75.0,
+    "trap": "OUT",
+    "profile": "FF vs Lehigh",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.3,
+    "starters": []
+  },
+  "Clemson": {
+    "seed": 8,
+    "region": "South",
+    "trank": 30,
+    "barthag": 0.8921,
+    "adjt": 64.3,
+    "adjoe": 116.6,
+    "adjde": 97.0,
+    "kp_rk": 36,
+    "kp_off": 71,
+    "kp_def": 20,
+    "conf": "ACC",
+    "rec": "24-10",
+    "ppg": 74.1,
+    "opp_ppg": 66.7,
+    "rpg": 34.3,
+    "apg": 12.8,
+    "spg": 6.3,
+    "fg": 45.5,
+    "three": 34.5,
+    "ft": 72.6,
+    "trap": "OUT",
+    "profile": "D #20 strength",
+    "top25": "NO"
+  ,
+    "nil_spend": 4.5,
+    "starters": []
+  },
+  "Iowa": {
+    "seed": 9,
+    "region": "South",
+    "trank": 26,
+    "barthag": 0.9068,
+    "adjt": 63.0,
+    "adjoe": 122.1,
+    "adjde": 100.2,
+    "kp_rk": 25,
+    "kp_off": 31,
+    "kp_def": 31,
+    "conf": "B10",
+    "rec": "21-12",
+    "ppg": 75.2,
+    "opp_ppg": 66.0,
+    "rpg": 29.4,
+    "apg": 15.3,
+    "spg": 7.1,
+    "fg": 49.2,
+    "three": 35.9,
+    "ft": 76.5,
+    "trap": "POSSIBLE",
+    "profile": "Both near top-30",
+    "top25": "NO"
+  ,
+    "nil_spend": 5.5,
+    "starters": [{"name":"Payton Sandfort","pos":"G","ppg":16.5},{"name":"Ben Krikke","pos":"F","ppg":14.8},{"name":"Patrick McCaffery","pos":"G","ppg":13.5},{"name":"Tony Perkins","pos":"G","ppg":12.2},{"name":"Owen Freeman","pos":"C","ppg":11.5}]
+  },
+  "Vanderbilt": {
+    "seed": 5,
+    "region": "South",
+    "trank": 10,
+    "barthag": 0.9461,
+    "adjt": 69.0,
+    "adjoe": 127.5,
+    "adjde": 99.4,
+    "kp_rk": 11,
+    "kp_off": 7,
+    "kp_def": 29,
+    "conf": "SEC",
+    "rec": "26-8",
+    "ppg": 86.4,
+    "opp_ppg": 75.2,
+    "rpg": 35.3,
+    "apg": 16.4,
+    "spg": 8.1,
+    "fg": 47.5,
+    "three": 36.3,
+    "ft": 80.2,
+    "trap": "POSSIBLE",
+    "profile": "Best dark horse; O #7 elite",
+    "top25": "NO"
+  ,
+    "nil_spend": 4.0,
+    "starters": [{"name":"Tyrin Lawrence","pos":"G","ppg":14.5},{"name":"AJ Hoggard","pos":"G","ppg":13.5},{"name":"Jason Edwards","pos":"G","ppg":12.8},{"name":"Ven-Allen Lubin","pos":"F","ppg":10.5},{"name":"Frankie Collins","pos":"G","ppg":12.5,"injured":true,"status":"OUT"}]
+  },
+  "McNeese St.": {
+    "seed": 12,
+    "region": "South",
+    "trank": 73,
+    "barthag": 0.7648,
+    "adjt": 66.1,
+    "adjoe": 113.2,
+    "adjde": 102.1,
+    "kp_rk": 68,
+    "kp_off": 91,
+    "kp_def": 47,
+    "conf": "Slnd",
+    "rec": "28-5",
+    "ppg": 80.0,
+    "opp_ppg": 66.5,
+    "rpg": 35.2,
+    "apg": 14.2,
+    "spg": 10.5,
+    "fg": 47.0,
+    "three": 32.0,
+    "ft": 74.8,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.3,
+    "starters": []
+  },
+  "Nebraska": {
+    "seed": 4,
+    "region": "South",
+    "trank": 20,
+    "barthag": 0.9308,
+    "adjt": 66.8,
+    "adjoe": 117.2,
+    "adjde": 93.5,
+    "kp_rk": 14,
+    "kp_off": 55,
+    "kp_def": 7,
+    "conf": "B10",
+    "rec": "26-6",
+    "ppg": 77.3,
+    "opp_ppg": 66.2,
+    "rpg": 34.9,
+    "apg": 18.0,
+    "spg": 7.2,
+    "fg": 46.4,
+    "three": 34.9,
+    "ft": 75.9,
+    "trap": "UNLIKELY",
+    "profile": "D #7 elite; O #55 limited",
+    "top25": "NO"
+  ,
+    "nil_spend": 4.0,
+    "starters": [{"name":"Juwan Gary","pos":"F","ppg":14.2},{"name":"Berke Buyuktuncel","pos":"C","ppg":12.5},{"name":"Brice Williams","pos":"G","ppg":11.5},{"name":"Sam Griesel","pos":"G","ppg":9.8},{"name":"Connor Essegian","pos":"G","ppg":15.8,"injured":true,"status":"OUT"}]
+  },
+  "Troy": {
+    "seed": 13,
+    "region": "South",
+    "trank": 142,
+    "barthag": 0.5435,
+    "adjt": 65.1,
+    "adjoe": 110.7,
+    "adjde": 109.0,
+    "kp_rk": 143,
+    "kp_off": 141,
+    "kp_def": 166,
+    "conf": "SB",
+    "rec": "22-11",
+    "ppg": 80.3,
+    "opp_ppg": 73.1,
+    "rpg": 38.3,
+    "apg": 16.0,
+    "spg": 8.0,
+    "fg": 44.8,
+    "three": 33.7,
+    "ft": 73.3,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.3,
+    "starters": []
+  },
+  "North Carolina": {
+    "seed": 6,
+    "region": "South",
+    "trank": 27,
+    "barthag": 0.903,
+    "adjt": 68.0,
+    "adjoe": 121.4,
+    "adjde": 100.0,
+    "kp_rk": 29,
+    "kp_off": 32,
+    "kp_def": 37,
+    "conf": "ACC",
+    "rec": "24-8",
+    "ppg": 79.8,
+    "opp_ppg": 71.3,
+    "rpg": 38.0,
+    "apg": 16.0,
+    "spg": 5.3,
+    "fg": 47.5,
+    "three": 35.1,
+    "ft": 69.8,
+    "trap": "OUT",
+    "profile": "Both near top-40; missing C. Wilson",
+    "top25": "NO"
+  ,
+    "nil_spend": 8.0,
+    "starters": []
+  },
+  "VCU": {
+    "seed": 11,
+    "region": "South",
+    "trank": 48,
+    "barthag": 0.8433,
+    "adjt": 68.7,
+    "adjoe": 119.3,
+    "adjde": 103.0,
+    "kp_rk": 46,
+    "kp_off": 46,
+    "kp_def": 63,
+    "conf": "A10",
+    "rec": "27-7",
+    "ppg": 81.6,
+    "opp_ppg": 71.5,
+    "rpg": 36.7,
+    "apg": 14.1,
+    "spg": 7.4,
+    "fg": 46.2,
+    "three": 36.7,
+    "ft": 73.6,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 2.0,
+    "starters": [{"name":"Joe Bamisile","pos":"G","ppg":18.5},{"name":"Jalen Jarrett","pos":"G","ppg":12.5},{"name":"Zeb Jackson","pos":"G","ppg":11.5},{"name":"TJ Taylor","pos":"G","ppg":10.2},{"name":"Felipe Haase","pos":"F","ppg":8.5}]
+  },
+  "Illinois": {
+    "seed": 3,
+    "region": "South",
+    "trank": 6,
+    "barthag": 0.9676,
+    "adjt": 65.7,
+    "adjoe": 131.9,
+    "adjde": 98.2,
+    "kp_rk": 7,
+    "kp_off": 1,
+    "kp_def": 28,
+    "conf": "B10",
+    "rec": "24-8",
+    "ppg": 84.4,
+    "opp_ppg": 69.8,
+    "rpg": 40.7,
+    "apg": 14.7,
+    "spg": 3.8,
+    "fg": 46.3,
+    "three": 34.3,
+    "ft": 78.6,
+    "trap": "POSSIBLE",
+    "profile": "#1 offense; D #28 borderline",
+    "top25": "NO"
+  ,
+    "nil_spend": 5.5,
+    "starters": [{"name":"Marcus Domask","pos":"G","ppg":16.8},{"name":"Coleman Hawkins","pos":"F/C","ppg":14.5},{"name":"Ty Rodgers","pos":"G","ppg":13.5},{"name":"Ben Humrichous","pos":"G","ppg":11.5},{"name":"Quincy Guerrier","pos":"F","ppg":10.5}]
+  },
+  "Penn": {
+    "seed": 14,
+    "region": "South",
+    "trank": 147,
+    "barthag": 0.5316,
+    "adjt": 69.0,
+    "adjoe": 106.6,
+    "adjde": 105.4,
+    "kp_rk": 159,
+    "kp_off": 215,
+    "kp_def": 112,
+    "conf": "Ivy",
+    "rec": "18-11",
+    "ppg": 76.1,
+    "opp_ppg": 73.3,
+    "rpg": 36.4,
+    "apg": 14.0,
+    "spg": 6.8,
+    "fg": 44.1,
+    "three": 38.3,
+    "ft": 68.5,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.5,
+    "starters": []
+  },
+  "Saint Mary's": {
+    "seed": 7,
+    "region": "South",
+    "trank": 25,
+    "barthag": 0.9106,
+    "adjt": 65.3,
+    "adjoe": 119.4,
+    "adjde": 97.5,
+    "kp_rk": 24,
+    "kp_off": 43,
+    "kp_def": 19,
+    "conf": "WCC",
+    "rec": "27-5",
+    "ppg": 78.2,
+    "opp_ppg": 64.6,
+    "rpg": 40.3,
+    "apg": 15.5,
+    "spg": 5.6,
+    "fg": 46.2,
+    "three": 38.4,
+    "ft": 80.6,
+    "trap": "OUT",
+    "profile": "D #19 strong",
+    "top25": "NO"
+  ,
+    "nil_spend": 2.5,
+    "starters": []
+  },
+  "Texas A&M": {
+    "seed": 10,
+    "region": "South",
+    "trank": 40,
+    "barthag": 0.8721,
+    "adjt": 71.0,
+    "adjoe": 119.9,
+    "adjde": 101.4,
+    "kp_rk": 39,
+    "kp_off": 49,
+    "kp_def": 40,
+    "conf": "SEC",
+    "rec": "21-11",
+    "ppg": 87.7,
+    "opp_ppg": 79.6,
+    "rpg": 37.7,
+    "apg": 18.1,
+    "spg": 8.1,
+    "fg": 45.8,
+    "three": 36.0,
+    "ft": 73.4,
+    "trap": "OUT",
+    "profile": "Both near top-50",
+    "top25": "NO"
+  ,
+    "nil_spend": 7.0,
+    "starters": [{"name":"Wade Taylor IV","pos":"G","ppg":15.5},{"name":"Henry Coleman III","pos":"F","ppg":14.5},{"name":"Tyrece Radford","pos":"G","ppg":13.8},{"name":"Hayden Hefner","pos":"G","ppg":12.5},{"name":"Manny Obaseki","pos":"F","ppg":9.2}]
+  },
+  "Houston": {
+    "seed": 2,
+    "region": "South",
+    "trank": 5,
+    "barthag": 0.9709,
+    "adjt": 63.3,
+    "adjoe": 125.3,
+    "adjde": 92.4,
+    "kp_rk": 5,
+    "kp_off": 14,
+    "kp_def": 5,
+    "conf": "B12",
+    "rec": "28-6",
+    "ppg": 77.1,
+    "opp_ppg": 62.9,
+    "rpg": 36.6,
+    "apg": 14.7,
+    "spg": 7.7,
+    "fg": 45.0,
+    "three": 35.3,
+    "ft": 76.5,
+    "trap": "LIKELY IN",
+    "profile": "Defensive powerhouse",
+    "top25": "YES"
+  ,
+    "nil_spend": 4.5,
+    "starters": [{"name":"Milos Uzan","pos":"G","ppg":16.8},{"name":"Damian Dunn","pos":"G","ppg":14.5},{"name":"Emanuel Sharp","pos":"G","ppg":13.5},{"name":"Terrence Arceneaux","pos":"G","ppg":12.8},{"name":"J'Wan Roberts","pos":"F","ppg":10.5}]
+  },
+  "Idaho": {
+    "seed": 15,
+    "region": "South",
+    "trank": 136,
+    "barthag": 0.5705,
+    "adjt": 67.4,
+    "adjoe": 108.8,
+    "adjde": 106.2,
+    "kp_rk": 145,
+    "kp_off": 176,
+    "kp_def": 136,
+    "conf": "BSky",
+    "rec": "21-14",
+    "ppg": 78.7,
+    "opp_ppg": 72.6,
+    "rpg": 37.4,
+    "apg": 12.5,
+    "spg": 5.9,
+    "fg": 45.0,
+    "three": 35.2,
+    "ft": 73.8,
+    "trap": "OUT",
+    "profile": "\u2014",
+    "top25": "NO"
+  ,
+    "nil_spend": 0.3,
+    "starters": []
+  }
+};
+const BRACKET_R64 = {
+  "East": [
+    [
+      "Duke",
+      "Siena"
+    ],
+    [
+      "Ohio St.",
+      "TCU"
+    ],
+    [
+      "St. John's",
+      "Northern Iowa"
+    ],
+    [
+      "Kansas",
+      "Cal Baptist"
+    ],
+    [
+      "Louisville",
+      "South Florida"
+    ],
+    [
+      "Michigan St.",
+      "North Dakota St."
+    ],
+    [
+      "UCLA",
+      "UCF"
+    ],
+    [
+      "Connecticut",
+      "Furman"
+    ]
+  ],
+  "West": [
+    [
+      "Arizona",
+      "LIU"
+    ],
+    [
+      "Villanova",
+      "Utah St."
+    ],
+    [
+      "Wisconsin",
+      "High Point"
+    ],
+    [
+      "Arkansas",
+      "Hawaii"
+    ],
+    [
+      "BYU",
+      "Texas"
+    ],
+    [
+      "Gonzaga",
+      "Kennesaw St."
+    ],
+    [
+      "Miami FL",
+      "Missouri"
+    ],
+    [
+      "Purdue",
+      "Queens"
+    ]
+  ],
+  "Midwest": [
+    [
+      "Michigan",
+      "Howard"
+    ],
+    [
+      "Georgia",
+      "Saint Louis"
+    ],
+    [
+      "Texas Tech",
+      "Akron"
+    ],
+    [
+      "Alabama",
+      "Hofstra"
+    ],
+    [
+      "Tennessee",
+      "Miami OH"
+    ],
+    [
+      "Virginia",
+      "Wright St."
+    ],
+    [
+      "Kentucky",
+      "Santa Clara"
+    ],
+    [
+      "Iowa St.",
+      "Tennessee St."
+    ]
+  ],
+  "South": [
+    [
+      "Florida",
+      "Prairie View A&M"
+    ],
+    [
+      "Clemson",
+      "Iowa"
+    ],
+    [
+      "Vanderbilt",
+      "McNeese St."
+    ],
+    [
+      "Nebraska",
+      "Troy"
+    ],
+    [
+      "North Carolina",
+      "VCU"
+    ],
+    [
+      "Illinois",
+      "Penn"
+    ],
+    [
+      "Saint Mary's",
+      "Texas A&M"
+    ],
+    [
+      "Houston",
+      "Idaho"
+    ]
+  ]
+};
+const HIST_WIN = {"1,16": 99.3, "2,15": 94.2, "3,14": 84.9, "4,13": 79.2, "5,12": 64.5, "6,11": 62.1, "7,10": 60.5, "8,9": 51.1};
+const FF_NOTES = {"Prairie View A&M": "First Four: Prairie View A&M 67, Lehigh 55 — lost to Florida in R64", "Miami OH": "First Four: Miami OH 89, SMU 79 — lost to Tennessee in R64"};
+
+// State
+let picks = {};        // key: gameId -> winner name
+let selectedGame = null;
+let currentRound = 2; // R64+R32 complete — start at Sweet 16
+
+// ── Pre-seeded R64 results (all games final as of 2026-03-21) ──────────────
+// IDs follow buildR64Games() order: East r64_0–7, West r64_8–15, Midwest r64_16–23, South r64_24–31
+const CONFIRMED_R64 = {
+  // East
+  "r64_0":"Duke",         // Duke 71, Siena 65
+  "r64_1":"TCU",          // TCU 66, Ohio St. 64  (UPSET)
+  "r64_2":"St. John's",   // St. John's 79, Northern Iowa 53
+  "r64_3":"Kansas",       // Kansas 68, Cal Baptist 60
+  "r64_4":"Louisville",   // Louisville 83, South Florida 79
+  "r64_5":"Michigan St.", // Michigan St. 92, North Dakota St. 67
+  "r64_6":"UCLA",         // UCLA 75, UCF 71
+  "r64_7":"Connecticut",  // Connecticut 82, Furman 71
+  // West
+  "r64_8":"Arizona",      // Arizona 92, LIU 58
+  "r64_9":"Utah St.",     // Utah St. 86, Villanova 76  (UPSET)
+  "r64_10":"High Point",  // High Point 83, Wisconsin 82  (UPSET)
+  "r64_11":"Arkansas",    // Arkansas 97, Hawaii 78
+  "r64_12":"Texas",       // Texas 79, BYU 71  (UPSET)
+  "r64_13":"Gonzaga",     // Gonzaga 73, Kennesaw St. 64
+  "r64_14":"Miami FL",    // Miami FL 80, Missouri 66
+  "r64_15":"Purdue",      // Purdue 104, Queens 71
+  // Midwest
+  "r64_16":"Michigan",    // Michigan 101, Howard 80
+  "r64_17":"Saint Louis", // Saint Louis 102, Georgia 77  (UPSET)
+  "r64_18":"Texas Tech",  // Texas Tech 91, Akron 71
+  "r64_19":"Alabama",     // Alabama 90, Hofstra 70
+  "r64_20":"Tennessee",   // Tennessee 78, Miami OH 56
+  "r64_21":"Virginia",    // Virginia 82, Wright St. 73
+  "r64_22":"Kentucky",    // Kentucky 89, Santa Clara 84
+  "r64_23":"Iowa St.",    // Iowa St. 108, Tennessee St. 74
+  // South
+  "r64_24":"Florida",     // Florida 114, Prairie View A&M 55
+  "r64_25":"Iowa",        // Iowa 67, Clemson 61  (UPSET)
+  "r64_26":"Vanderbilt",  // Vanderbilt 78, McNeese St. 68
+  "r64_27":"Nebraska",    // Nebraska 76, Troy 47
+  "r64_28":"VCU",         // VCU 82, North Carolina 78  (UPSET)
+  "r64_29":"Illinois",    // Illinois 105, Penn 70
+  "r64_30":"Texas A&M",   // Texas A&M 63, Saint Mary's 50
+  "r64_31":"Houston"      // Houston 78, Idaho 47
+};
+// Apply confirmed results immediately so R32 matchups render on first load
+Object.assign(picks, CONFIRMED_R64);
+
+// ── Pre-seeded R32 results (all games final as of 2026-03-23) ──────────────
+// IDs follow buildRoundGames(1) order: East r1_0–3, West r1_4–7, Midwest r1_8–11, South r1_12–15
+const CONFIRMED_R32 = {
+  // East
+  "r1_0": "Duke",         // Duke beat TCU
+  "r1_1": "St. John's",   // St. John's beat Kansas
+  "r1_2": "Michigan St.", // Michigan St. beat Louisville
+  "r1_3": "Connecticut",  // Connecticut beat UCLA
+  // West
+  "r1_4": "Arizona",      // Arizona beat Utah St.
+  "r1_5": "Arkansas",     // Arkansas beat High Point
+  "r1_6": "Texas",        // Texas beat Gonzaga
+  "r1_7": "Purdue",       // Purdue beat Miami FL
+  // Midwest
+  "r1_8":  "Michigan",    // Michigan beat Saint Louis
+  "r1_9":  "Alabama",     // Alabama beat Texas Tech
+  "r1_10": "Tennessee",   // Tennessee beat Virginia
+  "r1_11": "Iowa St.",    // Iowa St. beat Kentucky
+  // South
+  "r1_12": "Iowa",        // Iowa beat Florida
+  "r1_13": "Nebraska",    // Nebraska beat Vanderbilt
+  "r1_14": "Illinois",    // Illinois beat VCU
+  "r1_15": "Houston",     // Houston beat Texas A&M
+};
+// Apply confirmed R32 results so S16 matchups render correctly
+Object.assign(picks, CONFIRMED_R32);
+let currentFilter = 'all'; // 'all' | 'live' | 'final'
+
+// ── Game filter helpers ──────────────────────────────────────────────────────
+// Returns 'live' | 'final' | 'notplayed' for a given game
+function _isLiveStatus(st){ return st==='STATUS_IN_PROGRESS'||st==='STATUS_HALFTIME'||st==='STATUS_END_PERIOD'; }
+function _isFinalStatus(st){ return st&&(st==='STATUS_FINAL'||st.startsWith('STATUS_FINAL')); }
+
+// ── Game-scoped LIVE_SCORES lookup ──────────────────────────────────────────
+// Returns LIVE_SCORES[teamName] ONLY if that entry's stored opponent matches
+// the expected opponent. This prevents R64 scores from bleeding into R32+ cards.
+// If the entry has no opp field (legacy cache), always returns null — safe default.
+function _lsForGame(teamName, opponentName) {
+  const d = LIVE_SCORES[teamName];
+  if (!d) return null;
+  // Require opp field to match. An entry without opp is stale/untrustworthy — skip it.
+  if (!d.opp) return null;
+  if (opponentName && d.opp !== opponentName) return null;
+  return d;
+}
+
+function gameFilterStatus(g) {
+  // Use _lsForGame so only scores from THIS specific game (matched by opponent) are used.
+  // This prevents a team's R64 FINAL score from making an R32 game appear as 'final'.
+  const d1 = _lsForGame(g.t1, g.t2);
+  const d2 = _lsForGame(g.t2, g.t1);
+  if (_isLiveStatus(d1?.status) || _isLiveStatus(d2?.status)) return 'live';
+  if (_isFinalStatus(d1?.status) || _isFinalStatus(d2?.status)) return 'final';
+  return 'notplayed';
+}
+
+// Returns true if a game should be shown for the current filter
+function gamePassesFilter(g) {
+  if (currentFilter === 'all') return true;
+  if (currentFilter === 'live')  return gameFilterStatus(g) === 'live';
+  if (currentFilter === 'final') return gameFilterStatus(g) === 'final';
+  return true;
+}
+
+// Update the count badges on all filter buttons (scoped to currentRound)
+function updateFilterCounts() {
+  const games = getAllGamesForRound(currentRound);
+  let nAll = games.length, nLive = 0, nFinal = 0;
+  games.forEach(g => {
+    const s = gameFilterStatus(g);
+    if (s === 'live')  nLive++;
+    if (s === 'final') nFinal++;
+  });
+  const set = (id, n, cls) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = n;
+    el.className = 'filter-count' + (cls ? ' ' + cls : '') + (n === 0 ? ' fc-zero' : '');
+  };
+  set('fcAll',   nAll);
+  set('fcLive',  nLive,  nLive > 0 ? 'fc-live' : '');
+  set('fcFinal', nFinal);
+}
+
+// Switch active filter — called by button onclick
+function setGameFilter(f) {
+  currentFilter = f;
+  ['all','live','final'].forEach(k => {
+    const el = document.getElementById('fs' + k.charAt(0).toUpperCase() + k.slice(1));
+    if (!el) return;
+    el.classList.toggle('fs-active', k === f);
+  });
+  renderBracket();
+}
+
+const REGIONS = ["East","West","Midwest","South"];
+const REGION_COLORS = {East:"#1565c0",West:"#e65100",Midwest:"#2e7d32",South:"#b71c1c"};
+
+// Build round 0 games array: [{id, t1, t2, region, gameInRegion}]
+function buildR64Games() {
+  const games = [];
+  let gid = 0;
+  for (const region of REGIONS) {
+    const pairs = BRACKET_R64[region];
+    pairs.forEach((pair, i) => {
+      games.push({id: `r64_${gid++}`, round:0, t1:pair[0], t2:pair[1], region, gameInRegion:i});
+    });
+  }
+  return games;
+}
+
+// Build subsequent round games based on picks
+function buildRoundGames(round) {
+  // r32: winners of r64 pairs 0+1 play, 2+3 play, etc.
+  const prevGames = getAllGamesForRound(round - 1);
+  const games = [];
+  let gid = 0;
+  // Group previous games by region
+  for (const region of REGIONS) {
+    const regionPrev = prevGames.filter(g => g.region === region);
+    for (let i = 0; i < regionPrev.length; i += 2) {
+      if (i + 1 < regionPrev.length) {
+        const g1 = regionPrev[i];
+        const g2 = regionPrev[i+1];
+        const w1 = picks[g1.id] || `Winner of ${g1.t1}/${g1.t2}`;
+        const w2 = picks[g2.id] || `Winner of ${g2.t1}/${g2.t2}`;
+        games.push({id:`r${round}_${gid++}`,round,t1:w1,t2:w2,region,gameInRegion:Math.floor(i/2)});
+      }
+    }
+  }
+  return games;
+}
+
+function buildFFGames() {
+  const e8games = getAllGamesForRound(3);
+  const eastW  = picks[e8games.find(g=>g.region==="East")?.id]   || "East Champ";
+  const westW  = picks[e8games.find(g=>g.region==="West")?.id]   || "West Champ";
+  const midW   = picks[e8games.find(g=>g.region==="Midwest")?.id]|| "Midwest Champ";
+  const southW = picks[e8games.find(g=>g.region==="South")?.id]  || "South Champ";
+  return [
+    {id:"ff_0",round:4,t1:eastW,  t2:southW, region:"East/South",    gameInRegion:0},
+    {id:"ff_1",round:4,t1:westW,  t2:midW,   region:"West/Midwest",  gameInRegion:1},
+  ];
+}
+
+function buildChampGame() {
+  const ff = buildFFGames();
+  const w1 = picks[ff[0].id] || "FF Winner 1";
+  const w2 = picks[ff[1].id] || "FF Winner 2";
+  return [{id:"champ_0",round:5,t1:w1,t2:w2,region:"Championship",gameInRegion:0}];
+}
+
+function getAllGamesForRound(round) {
+  if (round===0) return buildR64Games();
+  if (round<=3)  return buildRoundGames(round);
+  if (round===4) return buildFFGames();
+  if (round===5) return buildChampGame();
+  return [];
+}
+
+function getTeam(name) {
+  return TEAMS[name] || null;
+}
+
+function getHistWin(s1, s2) {
+  const lo = Math.min(s1,s2), hi = Math.max(s1,s2);
+  return HIST_WIN[`${lo},${hi}`] || 50;
+}
+
+// ── Mobile bottom-drawer ──
+function isMobile(){ return window.innerWidth <= 767; }
+function openMobileDrawer(){
+  if(!isMobile()) return;
+  document.getElementById('analysisPane').classList.add('mobile-open');
+  document.getElementById('mobileOverlay').classList.add('active');
+  // iOS Safari ignores overflow:hidden on body — use position:fixed trick instead
+  const scrollY = window.scrollY;
+  document.body.style.position = 'fixed';
+  document.body.style.top = '-' + scrollY + 'px';
+  document.body.style.width = '100%';
+  document.body.dataset.scrollY = scrollY;
+}
+function closeMobileDrawer(){
+  document.getElementById('analysisPane').classList.remove('mobile-open');
+  document.getElementById('mobileOverlay').classList.remove('active');
+  // Restore scroll position after removing fixed positioning
+  const scrollY = parseInt(document.body.dataset.scrollY || '0');
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.width = '';
+  window.scrollTo(0, scrollY);
+}
+
+// ── Heating Up Metric — last-5-game stats (PPG, FG%, 3P%) scraped Mar 2026 ──
+// heat_z = composite z-score: 0.40×z(PPG) + 0.35×z(FG%) + 0.25×z(3P%) across 32-team S16 field
+// Threshold: heat_z ≥ 0.28 → 🔥 (top ~third), heat_z ≤ -0.20 → ❄️ (bottom ~third)
+const HEAT_STATS = {
+  "Duke":         {ppg_l5:75.8, fg_l5:57.4, three_l5:44.8, heat_z: 0.464},
+  "TCU":          {ppg_l5:73.0, fg_l5:57.2, three_l5:41.4, heat_z: 0.042},
+  "St. John's":   {ppg_l5:82.2, fg_l5:48.4, three_l5:38.6, heat_z:-0.144},
+  "Kansas":       {ppg_l5:76.8, fg_l5:55.2, three_l5:41.2, heat_z: 0.143},
+  "Louisville":   {ppg_l5:75.8, fg_l5:51.2, three_l5:41.4, heat_z:-0.197},
+  "Michigan St.": {ppg_l5:84.8, fg_l5:49.2, three_l5:50.9, heat_z: 0.879},
+  "UCLA":         {ppg_l5:71.6, fg_l5:52.8, three_l5:43.3, heat_z:-0.245},
+  "Connecticut":  {ppg_l5:73.4, fg_l5:46.2, three_l5:47.0, heat_z:-0.357},
+  "Arizona":      {ppg_l5:82.4, fg_l5:46.8, three_l5:48.5, heat_z: 0.391},
+  "Utah St.":     {ppg_l5:76.8, fg_l5:51.0, three_l5:47.3, heat_z: 0.235},
+  "High Point":   {ppg_l5:83.6, fg_l5:49.6, three_l5:44.4, heat_z: 0.409},
+  "Arkansas":     {ppg_l5:90.4, fg_l5:40.0, three_l5:49.5, heat_z: 0.511},
+  "Texas":        {ppg_l5:74.4, fg_l5:46.8, three_l5:42.3, heat_z:-0.548},
+  "Gonzaga":      {ppg_l5:68.8, fg_l5:57.0, three_l5:44.8, heat_z:-0.038},
+  "Miami FL":     {ppg_l5:75.6, fg_l5:53.8, three_l5:45.9, heat_z: 0.264},
+  "Purdue":       {ppg_l5:82.0, fg_l5:46.0, three_l5:44.2, heat_z: 0.031},
+  "Michigan":     {ppg_l5:81.4, fg_l5:42.4, three_l5:43.0, heat_z:-0.344},
+  "Saint Louis":  {ppg_l5:77.6, fg_l5:54.2, three_l5:46.2, heat_z: 0.447},
+  "Texas Tech":   {ppg_l5:70.0, fg_l5:52.4, three_l5:36.0, heat_z:-0.850},
+  "Alabama":      {ppg_l5:88.6, fg_l5:45.2, three_l5:44.8, heat_z: 0.458},
+  "Tennessee":    {ppg_l5:75.8, fg_l5:46.4, three_l5:44.9, heat_z:-0.315},
+  "Virginia":     {ppg_l5:77.8, fg_l5:53.8, three_l5:47.1, heat_z: 0.490},
+  "Kentucky":     {ppg_l5:76.0, fg_l5:44.6, three_l5:46.4, heat_z:-0.334},
+  "Iowa St.":     {ppg_l5:87.2, fg_l5:38.6, three_l5:50.0, heat_z: 0.226},
+  "Florida":      {ppg_l5:83.0, fg_l5:53.4, three_l5:40.3, heat_z: 0.376},
+  "Iowa":         {ppg_l5:71.8, fg_l5:50.2, three_l5:47.7, heat_z:-0.134},
+  "Vanderbilt":   {ppg_l5:78.2, fg_l5:52.4, three_l5:45.0, heat_z: 0.282},
+  "Nebraska":     {ppg_l5:68.8, fg_l5:55.2, three_l5:45.4, heat_z:-0.128},
+  "VCU":          {ppg_l5:71.0, fg_l5:53.2, three_l5:42.6, heat_z:-0.302},
+  "Illinois":     {ppg_l5:85.4, fg_l5:45.2, three_l5:47.3, heat_z: 0.403},
+  "Texas A&M":    {ppg_l5:70.4, fg_l5:46.8, three_l5:36.2, heat_z:-1.210},
+  "Houston":      {ppg_l5:74.8, fg_l5:47.2, three_l5:35.8, heat_z:-0.910},
+};
+
+// ── Model weights (editable via ⚙ Weights button) ──
+// Proportional trim from baseline to add Heating Up at 10%.
+// Barthag 27%, Quad 24%, KP 13%, Seed 6%, Tempo 4%, NIL 13%, Inj 3%, Heat 10% = 100%
+const WEIGHTS = { barthag: 27, quad: 24, kp: 13, seed: 6, tempo: 4, nil: 13, inj: 3, heat: 10 };
+// Note: 'inj' is a soft weight applied when key starter is confirmed OUT (injury flag system handles display)
+
+// ── Per-game manual probability adjustments ──
+// Positive value = shift probability toward T1; negative = toward T2
+const ADJUSTMENTS = {};
+
+// ── Upset Risk Detection Engine ──
+// Flags hidden factors the 5-factor model doesn't capture, derived from NIL era upset analysis
+function detectUpsetRisk(t1name, t2name) {
+  const t1 = getTeam(t1name), t2 = getTeam(t2name);
+  if (!t1 || !t2) return [];
+  const flags = [];
+  const [fav, dog] = t1.seed <= t2.seed ? [t1, t2] : [t2, t1];
+  const [favName, dogName] = t1.seed <= t2.seed ? [t1name, t2name] : [t2name, t1name];
+  const seedGap = Math.abs(t1.seed - t2.seed);
+
+  // FLAG 1: Trapezoid Fail — high-seeded team that failed the bilateral efficiency test
+  // NIL era data: Kentucky 2022 (#2 seed), Kentucky 2024 (#3 seed) both lost with this profile
+  if (fav.seed <= 5 && fav.trap === "OUT") {
+    flags.push({
+      severity: "high", icon: "🔺", title: "Trapezoid Fail",
+      desc: `${favName} is seeded #${fav.seed} but fails the bilateral efficiency test `+
+            `(KP Off #${fav.kp_off}, Def #${fav.kp_def}). NIL era data: Kentucky fell with `+
+            `this exact profile in 2022 and 2024. Teams with prestige seedings but no `+
+            `defensive balance are the most reliable upset targets in the bracket.`
+    });
+  } else if (fav.seed <= 4 && fav.trap === "POSSIBLE") {
+    flags.push({
+      severity: "med", icon: "⚠️", title: "Partial Trapezoid",
+      desc: `${favName} has one elite efficiency dimension but not both inside the top 25. `+
+            `The champion profile requires both KP Off and Def in the top 25 — this team is `+
+            `only halfway there, creating a structural soft spot.`
+    });
+  }
+
+  // FLAG 2: KP Inversion — underdog's efficiency rank is better or near-equal to favorite's
+  // Iowa State 2022: #11 seed with KP #18 vs LSU at KP #30 — model actually favored the "underdog"
+  const kpGap = dog.kp_rk - fav.kp_rk;
+  if (kpGap < 0) {
+    flags.push({
+      severity: "high", icon: "🔄", title: "KP Inversion",
+      desc: `${dogName} (KP #${dog.kp_rk}) ranks HIGHER in efficiency than `+
+            `${favName} (KP #${fav.kp_rk}) despite the lower seed. The committee seeded by `+
+            `record and conference prestige, not efficiency. Iowa State 2022 (#11 seed, KP #18 `+
+            `vs LSU KP #30) is the exact NIL era template — the model called it a model favorite.`
+    });
+  } else if (kpGap < 12 && seedGap > 3) {
+    flags.push({
+      severity: "high", icon: "🔄", title: "Near KP Inversion",
+      desc: `${dogName} (KP #${dog.kp_rk}) is nearly equal to ${favName} (KP #${fav.kp_rk}) `+
+            `in efficiency despite a ${seedGap}-seed difference. The seed gap significantly `+
+            `overstates the true quality gap — this matchup is far closer than it looks on paper.`
+    });
+  } else if (kpGap < 22 && seedGap > 5) {
+    flags.push({
+      severity: "med", icon: "📊", title: "Seeding Noise",
+      desc: `${seedGap}-seed gap but only a ${kpGap}-rank KP difference. NIL era transfer portal `+
+            `activity creates rosters the committee can't fully evaluate mid-year. NC State 2024 `+
+            `(17-14 record seeded #11 but KP #42) reached the Final Four on this exact pattern.`
+    });
+  }
+
+  // FLAG 3: Possession Trap — underdog plays slower with elite defense
+  // Princeton 2023, Furman 2023: both slowed games to create variance
+  const tempoDiff = dog.adjt - fav.adjt;
+  if (tempoDiff < -4.5 && dog.kp_def <= 55) {
+    flags.push({
+      severity: "med", icon: "🐢", title: "Possession Trap",
+      desc: `${dogName} plays ${Math.abs(tempoDiff).toFixed(1)} fewer possessions/40min than `+
+            `${favName} (${dog.adjt} vs ${fav.adjt}) and defends at KP Def #${dog.kp_def}. `+
+            `Fewer possessions = more variance per shot. Princeton 2023 and Furman 2023 both `+
+            `used this exact template to eliminate higher-seeded teams.`
+    });
+  }
+
+  // FLAG 4: One-way offensive dominant favorite — top-20 offense, outside top-50 defense
+  // Auburn 2022, various Kentucky teams, Ohio St. 2026: big scorer, can't stop anyone
+  // Threshold broadened to kp_off <=20: top-20 offense with no defensive balance is a real NIL-era pattern
+  if (fav.kp_off <= 20 && fav.kp_def > 50) {
+    flags.push({
+      severity: "med", icon: "⚡", title: "One-Way Offense Risk",
+      desc: `${favName} is elite offensively (KP Off #${fav.kp_off}) but carries a soft defense `+
+            `(KP Def #${fav.kp_def}). March eliminates the scoring opportunities that mask `+
+            `defensive gaps. An opponent that controls pace and executes half-court can neutralize `+
+            `the offensive advantage entirely.`
+    });
+  } else if (fav.kp_def <= 12 && fav.kp_off > 55) {
+    flags.push({
+      severity: "low", icon: "🛡", title: "One-Way Defense Profile",
+      desc: `${favName} is elite defensively (KP Def #${fav.kp_def}) but limited offensively `+
+            `(KP Off #${fav.kp_off}). In low-possession games, a single hot shooting stretch `+
+            `from the underdog can flip the outcome — the margin for error on offense is thin.`
+    });
+  }
+
+  // FLAG 5: Hidden efficiency closeness — Barthag gap far smaller than seed gap implies
+  const barthagGap = Math.abs(fav.barthag - dog.barthag);
+  if (seedGap >= 6 && barthagGap < 0.075) {
+    flags.push({
+      severity: "med", icon: "📉", title: "Hidden Efficiency Close",
+      desc: `Despite a ${seedGap}-seed gap, the Barthag difference is only `+
+            `${barthagGap.toFixed(3)} (${favName}: ${fav.barthag.toFixed(3)}, `+
+            `${dogName}: ${dog.barthag.toFixed(3)}). The model's actual win probability `+
+            `is far tighter than the seeding suggests — this is not a safe chalk pick.`
+    });
+  }
+
+  // FLAG 6: Elite defensive underdog — seed 9 or higher with D30 or better
+  // Threshold broadened to seed>=9: TCU 2026 (seed 9, KP Def #22) is the exact profile.
+  // 9-seeds with elite defense in an 8/9 game are structurally undervalued by the committee.
+  // Oakland 2024 (KP Def solid), Princeton 2023 (top defensive team), TCU 2026 (#22 defense)
+  if (dog.seed >= 9 && dog.kp_def <= 30) {
+    flags.push({
+      severity: "med", icon: "🧱", title: "Elite Defensive Underdog",
+      desc: `${dogName} (#${dog.seed} seed) ranks KP Def #${dog.kp_def} — a top-30 defense `+
+            `in a single-elimination game keeps any result on the table. In the NIL era, `+
+            `seeds 9–15 with elite defense (TCU 2026 #22, Oakland 2024, Princeton 2023) `+
+            `account for a disproportionate share of bracket chaos.`
+    });
+  }
+
+  // FLAG 7: Injury Impact on Favorite — key player(s) confirmed OUT
+  // This flag fires when the favored team's efficiency stats were built with a player
+  // who is no longer available — the model is using "healthy" numbers for a depleted roster
+  const favInjSev = getTopInjurySeverity(favName);
+  const favInj = getTeamInjuries(favName).filter(i => i.status === "OUT" || i.status === "OUT (R1)");
+  if (favInjSev === "critical" && favInj.length) {
+    const top = favInj[0];
+    const statsStr = top.ppg ? ` (${top.ppg} PPG${top.rpg ? ' / ' + top.rpg + ' RPG' : ''})` : '';
+    flags.push({
+      severity: "high", icon: "🩹", title: "Injury: Star Player Out",
+      desc: `${favName} is missing ${top.player}${statsStr} — ${top.status}. `+
+            `The model's Barthag and KenPom numbers were built on a full healthy roster. `+
+            `${top.note} Consider applying a manual probability adjustment below.`
+    });
+  } else if (favInjSev === "high" && favInj.length) {
+    const top = favInj[0];
+    flags.push({
+      severity: "med", icon: "🩹", title: `Injury: ${top.player} Out`,
+      desc: `${favName} is playing without starting ${top.pos} ${top.player} (${top.status}). `+
+            `${top.note} Model stats don't account for this absence — check roster depth before picking.`
+    });
+  } else if (favInjSev === "moderate") {
+    const qPlayers = getTeamInjuries(favName).filter(i => i.status === "QUESTIONABLE" && (i.severity === "high" || i.severity === "moderate"));
+    if (qPlayers.length) {
+      flags.push({
+        severity: "low", icon: "🩹", title: `Injury Watch: ${qPlayers.map(p=>p.player).join(', ')}`,
+        desc: `${favName} has ${qPlayers.length > 1 ? qPlayers.length + ' players' : qPlayers[0].player} listed as QUESTIONABLE. Check game-time availability reports before finalizing your pick — status may change within 2 hours of tip.`
+      });
+    }
+  }
+
+  // FLAG 8: NIL Reversal — underdog has meaningfully higher NIL investment than the favourite
+  // Seedings are based on record and conference prestige; NIL spend reflects actual portal roster quality.
+  // When the underdog outspends the favourite by 1.75x+, the seeding gap overstates the true quality gap.
+  const nilFav = fav.nil_spend || 1, nilDog = dog.nil_spend || 1;
+  if (nilDog > nilFav * 1.75 && seedGap >= 3) {
+    flags.push({
+      severity: "med", icon: "💰", title: "NIL Reversal",
+      desc: `${dogName} invests $${nilDog}M in NIL vs ${favName}'s $${nilFav}M — the underdog has ` +
+            `${(nilDog/nilFav).toFixed(1)}× the roster-building budget. In the NIL era, portal ` +
+            `spending directly predicts talent. Kentucky ($22M) and Duke ($12M) consistently ` +
+            `demonstrate that seedings lag behind actual investment-based roster quality gaps.`
+    });
+  }
+
+  // FLAG 9: Star Absence + NIL Gap — underdog's missing star was also their highest NIL earner,
+  // but the favourite has a depth advantage funded by a larger NIL budget
+  // Already handled via FLAG 7 injury + NIL Reversal combo, but flag for underdog injuries too
+  const dogInjSev = getTopInjurySeverity(dogName);
+  const dogInj = getTeamInjuries(dogName).filter(i => i.status === "OUT");
+  if (dogInjSev === "critical" && dogInj.length) {
+    const top = dogInj[0];
+    const statsStr = top.ppg ? ` (${top.ppg} PPG${top.rpg ? '/' + top.rpg + ' RPG' : ''})` : '';
+    flags.push({
+      severity: "med", icon: "🩹", title: `Underdog Injury: ${top.player}`,
+      desc: `${dogName} (the underdog) is also missing ${top.player}${statsStr} — ${top.status}. ` +
+            `${top.note || ''} This reduces the upset probability relative to model output. ` +
+            `Model stats reflect a healthier roster than the one taking the floor.`
+    });
+  }
+
+  // FLAG 10: 5-12 Bracket Zone — historically the most volatile matchup in the tournament
+  // 12-seeds beat 5-seeds ~35.5% of the time (1985-2026: 57 wins out of 160 games).
+  // 2026 R64 confirmed: Utah St. over Villanova AND High Point over Wisconsin (2-for-2).
+  // When Barthag gap is under 0.11, efficiency is statistically near coin-flip territory.
+  if (fav.seed === 5 && dog.seed === 12) {
+    const bgap = Math.abs(fav.barthag - dog.barthag);
+    const tempoEdge = (dog.adjt || 68) > (fav.adjt || 68) + 3;
+    if (bgap < 0.11) {
+      flags.push({
+        severity: "med", icon: "🎯", title: "5-12 Zone: Efficiency Close",
+        desc: `5-vs-12 matchups are the most upset-prone slot in the bracket — 12-seeds win ` +
+              `~35.5% historically and went 2-for-2 in 2026 R64 (Utah St. over Villanova, ` +
+              `High Point over Wisconsin). Barthag gap here is only ${bgap.toFixed(3)} — ` +
+              `${dogName}'s efficiency is far closer to ${favName}'s than the seeding implies.` +
+              `${tempoEdge ? ' ' + dogName + ' also plays faster, adding variance.' : ''} ` +
+              `Never a safe chalk pick.`
+      });
+    }
+  }
+
+  // FLAG 11: Depleted Rotation — 2 or more starters confirmed OUT
+  // Multiple-starter absences compound non-linearly: chemistry disruption, bench depth, and
+  // offensive system breakdown amplify each individual absence beyond simple addition.
+  // 2026 R64 evidence: UNC (Wilson + Brown both OUT) fell to VCU despite being the higher seed.
+  const favOutStarters = (INJURIES[favName] || [])
+    .filter(i => (i.status === 'OUT' || i.status === 'OUT (R1)') && i.role === 'starter').length;
+  if (favOutStarters >= 2) {
+    const depletedNames = (INJURIES[favName] || [])
+      .filter(i => (i.status === 'OUT' || i.status === 'OUT (R1)') && i.role === 'starter')
+      .map(i => i.player).join(' + ');
+    flags.push({
+      severity: "high", icon: "🏥", title: "Depleted Rotation",
+      desc: `${favName} has lost ${favOutStarters} starters — ${depletedNames}. Multiple-absence ` +
+            `effects compound non-linearly: chemistry disruption, thinner bench, and lineup ` +
+            `uncertainty all amplify each individual loss. The model's efficiency stats were built ` +
+            `on a roster that no longer exists. UNC (Wilson + Brown OUT) is the 2026 R64 example — ` +
+            `fell to a lower-seeded VCU despite being the higher seed.`
+    });
+  }
+
+  return flags;
+}
+
+function riskLevel(flags) {
+  if (!flags || !flags.length) return "clean";
+  if (flags.some(f => f.severity === "high")) return "high";
+  if (flags.length >= 2) return "med";
+  return "low";
+}
+
+function riskFooterHTML(t1name, t2name) {
+  const t1 = getTeam(t1name), t2 = getTeam(t2name);
+  if (!t1 || !t2) return '';
+  const flags = detectUpsetRisk(t1name, t2name);
+  const level = riskLevel(flags);
+  if (level === "clean") return '';
+  const cls   = level === "high" ? "rf-high" : level === "med" ? "rf-med" : "rf-low";
+  const icon  = level === "high" ? "🔺" : "⚠️";
+  const label = level === "high"
+    ? `HIGH UPSET RISK — ${flags.length} flag${flags.length > 1 ? 's' : ''}`
+    : `${flags.length} upset risk flag${flags.length > 1 ? 's' : ''}`;
+  return `<div class="risk-footer ${cls}">${icon} ${label}</div>`;
+}
+
+function riskSectionHTML(t1name, t2name) {
+  const t1 = getTeam(t1name), t2 = getTeam(t2name);
+  if (!t1 || !t2) return '';
+  const flags = detectUpsetRisk(t1name, t2name);
+  const level = riskLevel(flags);
+  if (level === "clean") {
+    return `<div class="risk-section rs-clean">
+      <div class="risk-header rh-clean">✅ No hidden upset risk flags detected — model reliable</div>
+      <div class="risk-flags-body" style="font-size:.68rem;color:#446;padding:6px 10px">
+        All 6 risk checks passed: bilateral efficiency, seeding noise, KP inversion, possession trap, one-way dominance, hidden Barthag gap.
+      </div>
+    </div>`;
+  }
+  const hdrCls = level === "high" ? "rh-high" : "rh-med";
+  const hdrLabel = level === "high"
+    ? `🔺 HIGH UPSET RISK — ${flags.length} flags triggered`
+    : `⚠️ ${flags.length} upset risk flag${flags.length > 1 ? 's' : ''} — review below`;
+  const flagHTML = flags.map(f => `
+    <div class="risk-flag">
+      <div class="rflag-icon">${f.icon}</div>
+      <div>
+        <div class="rflag-title">${f.title}</div>
+        <div class="rflag-desc">${f.desc}</div>
+      </div>
+    </div>`).join('');
+  return `<div class="risk-section">
+    <div class="risk-header ${hdrCls}">${hdrLabel}</div>
+    <div class="risk-flags-body">${flagHTML}</div>
+  </div>`;
+}
+
+function adjSectionHTML(gameId, t1name, t2name) {
+  const adj = ADJUSTMENTS[gameId] || 0;
+  const dispCls = adj > 0 ? 'adj-disp-pos' : adj < 0 ? 'adj-disp-neg' : 'adj-disp-zero';
+  const dispText = adj > 0 ? `+${adj}% to ${t1name}`
+                 : adj < 0 ? `${adj}% to ${t2name}`
+                 : '±0%  —  model default';
+  const t1s = t1name.replace(/'/g, "\\'");
+  const t2s = t2name.replace(/'/g, "\\'");
+  return `<div class="adj-section">
+    <div class="adj-title">
+      <span>🎚 Manual Probability Override</span>
+      <button class="adj-reset-btn" onclick="resetAdj('${gameId}')">Reset ×</button>
+    </div>
+    <div class="adj-subtitle">Adjust for factors the model can't see: injuries, travel fatigue, portal roster cohesion, hot shooting runs, matchup-specific schemes.</div>
+    <div class="adj-row">
+      <div class="adj-edge-label">← ${t2name}</div>
+      <input type="range" class="adj-slider" min="-25" max="25" step="1" value="${adj}"
+             oninput="applyAdj('${gameId}','${t1s}','${t2s}',parseInt(this.value))">
+      <div class="adj-edge-label" style="text-align:right">${t1name} →</div>
+    </div>
+    <div class="adj-val-row">
+      <div class="adj-display ${dispCls}" id="adjDisp_${gameId}">${dispText}</div>
+      <div style="font-size:.6rem;color:#334">Drag to ±25%</div>
+    </div>
+  </div>`;
+}
+
+function applyAdj(gameId, t1name, t2name, value) {
+  if (value === 0) { delete ADJUSTMENTS[gameId]; }
+  else { ADJUSTMENTS[gameId] = value; }
+  // Refresh analysis pane to update probability bar
+  if (window._selectedGame) showAnalysis(window._selectedGame);
+}
+
+function resetAdj(gameId) {
+  delete ADJUSTMENTS[gameId];
+  if (window._selectedGame) showAnalysis(window._selectedGame);
+}
+
+// ── 2026 NCAA Tournament Injury & Availability Report ──
+// Sources: RotoWire, SportsBettingDime, CBS Sports, NBC Sports, ESPN (March 17-18 2026)
+const INJURIES = {
+  "Texas Tech": [
+    { player:"JT Toppin", pos:"F", role:"starter", injury:"Torn ACL", status:"OUT",
+      severity:"critical", ppg:21.8, rpg:10.8,
+      note:"All-American. 21.8 PPG / 10.8 RPG. Torn ACL Feb 17 — Red Raiders entered tourney on 3-game skid and slid from projected 3-seed to 5-seed. Primary interior threat gone all tournament." }
+  ],
+  "North Carolina": [
+    { player:"Caleb Wilson", pos:"F", role:"starter", injury:"Thumb fracture (surgery)", status:"OUT",
+      severity:"critical", ppg:19.8, rpg:9.4,
+      note:"19.8 PPG / 9.4 RPG. All-ACC first team, projected top-5 NBA pick. Season-ending surgery. Selection committee confirmed Wilson's absence impacted UNC's seeding. Tar Heels went 5-3 without him." },
+    { player:"James Brown", pos:"F", role:"starter", injury:"Foot", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Second starting forward also out. UNC enters the tournament having lost two starters and 30+ combined PPG off their wing rotation." }
+  ],
+  "BYU": [
+    { player:"Richie Saunders", pos:"F", role:"starter", injury:"Knee (season-ending)", status:"OUT",
+      severity:"critical", ppg:15.4, rpg:5.8,
+      note:"One of BYU's offensive 'big three' alongside AJ Dybantsa. Season-ending knee injury mid-February. Major scoring and shot-creation gap in their system." },
+    { player:"Dawson Baker", pos:"G", role:"reserve", injury:"Knee", status:"OUT",
+      severity:"low", ppg:null, rpg:null, note:"Backup guard depth loss." }
+  ],
+  "Duke": [
+    { player:"Caleb Foster", pos:"G", role:"starter", injury:"Broken foot", status:"OUT",
+      severity:"high", ppg:11.3, rpg:3.1,
+      note:"Starting guard and primary ball handler. Out for first weekend — may return if Blue Devils advance to Sweet 16+. Duke's depth moderates impact but the PG rotation is thinned." },
+    { player:"Patrick Ngongba II", pos:"C", role:"reserve", injury:"Foot soreness", status:"QUESTIONABLE",
+      severity:"low", ppg:null, rpg:null,
+      note:"'Very unlikely' per coach Scheyer for opener. Backup center." }
+  ],
+  "Kentucky": [
+    { player:"Jaland Lowe", pos:"G", role:"starter", injury:"Shoulder", status:"OUT",
+      severity:"high", ppg:13.5, rpg:3.2,
+      note:"Primary point guard and offensive facilitator. Loss directly compounds Kentucky's Trapezoid Fail risk flag — they already have a soft bilateral efficiency profile." }
+  ],
+  "Alabama": [
+    { player:"Aden Holloway", pos:"G", role:"starter", injury:"Suspended (felony arrest)", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"2nd leading scorer. Non-injury suspension — confirmed unavailable with no return path. Coach Oats stated the team is preparing to play without him all tournament." }
+  ],
+  "Michigan St.": [
+    { player:"Divine Ugochukwu", pos:"G", role:"starter", injury:"Foot", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Starting guard and key offensive piece. Reduces scoring options and on-ball creation depth." }
+  ],
+  "Louisville": [
+    { player:"Mikel Brown Jr.", pos:"G", role:"starter", injury:"Back", status:"OUT (R1)",
+      severity:"high", ppg:null, rpg:null,
+      note:"Star freshman guard — confirmed out vs South Florida (R64). Possible return if Louisville reaches Sweet 16. Model stats reflect full-season numbers with him healthy." }
+  ],
+  "Vanderbilt": [
+    { player:"Frankie Collins", pos:"G", role:"starter", injury:"Knee", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Primary floor general and playmaker. Vanderbilt loses their chief facilitator for the entire tournament — alters their half-court execution fundamentally." }
+  ],
+  "Texas A&M": [
+    { player:"Mackenzie Mgbako", pos:"F", role:"starter", injury:"Foot", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Key starting forward. A&M loses a primary wing scorer and athletic mismatch option." }
+  ],
+  "Nebraska": [
+    { player:"Connor Essegian", pos:"G", role:"starter", injury:"Ankle", status:"OUT",
+      severity:"high", ppg:null, rpg:null,
+      note:"Starting guard and primary three-point threat. Nebraska loses their spacing anchor and perimeter scoring." }
+  ],
+  "Connecticut": [
+    { player:"Silas Demary Jr.", pos:"G", role:"starter", injury:"Ankle", status:"QUESTIONABLE",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Starter. Ankle injuries limit lateral quickness — critical for UConn's defensive pressure system. Watch for game-time reports." },
+    { player:"Jaylin Stewart", pos:"F", role:"starter", injury:"Knee", status:"QUESTIONABLE",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Two starters questionable creates real lineup uncertainty. UConn's championship pedigree masks depth concerns if both miss time." }
+  ],
+  "UCLA": [
+    { player:"Donovan Dent", pos:"G", role:"starter", injury:"Calf strain", status:"QUESTIONABLE",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Primary ball handler. Calf strains limit first-step explosiveness and on-ball defense — both central to UCLA's style." },
+    { player:"Tyler Bilodeau", pos:"F", role:"reserve", injury:"Knee", status:"QUESTIONABLE",
+      severity:"low", ppg:null, rpg:null, note:"Rotation piece." }
+  ],
+  "Ohio St.": [
+    { player:"Taison Chatman", pos:"G", role:"starter", injury:"Groin", status:"QUESTIONABLE",
+      severity:"moderate", ppg:null, rpg:null,
+      note:"Starting guard. Groin strains limit explosiveness and defensive intensity in ways that don't show on the box score but affect live game flow significantly." }
+  ],
+  "Gonzaga": [
+    { player:"Braden Huff", pos:"F", role:"starter", injury:"Knee", status:"OUT",
+      severity:"moderate", ppg:14.2, rpg:5.6,
+      note:"14.2 PPG / 5.6 RPG starter. Out since Jan 15 — Gonzaga's efficiency stats already reflect this absence across 7+ weeks. Lower surprise value than a recent injury, but still a real depth loss." }
+  ],
+  "Villanova": [
+    { player:"Matthew Hodge", pos:"F", role:"reserve", injury:"ACL (season-ending)", status:"OUT",
+      severity:"moderate", ppg:9.2, rpg:null,
+      note:"9.2 PPG reserve. Meaningful depth loss — Villanova will lean on less-tested players in close late-game situations." }
+  ],
+  "Illinois":    [{ player:"Jason Jakstys",  pos:"C", role:"reserve",  injury:"Shoulder",  status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Backup center." }],
+  "Missouri":    [{ player:"Annor Boateng",  pos:"G", role:"reserve",  injury:"Leg",       status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Rotation guard." }],
+  "Tennessee":   [{ player:"Cade Phillips",  pos:"F", role:"reserve",  injury:"Shoulder",  status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Bench forward." }],
+  "SMU":         [{ player:"B.J. Edwards",   pos:"G", role:"reserve",  injury:"Ankle",     status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Backup guard." }],
+  "St. John's":  [{ player:"Casper Pohto",   pos:"G", role:"reserve",  injury:"Hip",       status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Rotation guard." }],
+  "Iowa St.":    [{ player:"Xzavion Mitchell",pos:"F",role:"reserve",  injury:"Undisclosed",status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Rotation piece." }],
+  "Arkansas":    [{ player:"Karter Knox",    pos:"F", role:"reserve",  injury:"Knee",      status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Rotation forward." }],
+  "Michigan":    [{ player:"LJ Cason",       pos:"G", role:"reserve",  injury:"Torn ACL",  status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Rotational guard." }],
+  "Wisconsin":   [{ player:"Nolan Winter",   pos:"F", role:"reserve",  injury:"Ankle",     status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Reserve forward." }]
+};
+
+function getTeamInjuries(teamName) { return INJURIES[teamName] || []; }
+
+function getTopInjurySeverity(teamName) {
+  const inj = getTeamInjuries(teamName);
+  const confirmed = inj.filter(i => i.status === "OUT" || i.status === "OUT (R1)");
+  if (confirmed.some(i => i.severity === "critical"))  return "critical";
+  if (confirmed.some(i => i.severity === "high"))      return "high";
+  if (inj.some(i => i.severity === "critical" || i.severity === "high")) return "moderate";
+  if (inj.some(i => i.severity === "moderate"))        return "moderate";
+  if (inj.length > 0)                                  return "low";
+  return "clean";
+}
+
+function injuryBlockHTML(teamName) {
+  const inj = getTeamInjuries(teamName);
+  if (!inj.length) return '';
+  const sevColor = { critical:"#ff7070", high:"#f5a623", moderate:"#7fb8ff", low:"#667" };
+  const rows = inj.map(i => {
+    const sc = sevColor[i.severity] || "#667";
+    const statsStr = i.ppg ? ` · ${i.ppg} PPG${i.rpg ? ' / '+i.rpg+' RPG' : ''}` : '';
+    return `<div style="display:flex;gap:6px;margin-bottom:5px;font-size:.68rem;align-items:flex-start">
+      <div style="min-width:42px;font-weight:700;padding:1px 5px;background:#1a1a2a;border-radius:3px;color:${sc};font-size:.58rem;text-align:center;flex-shrink:0;margin-top:1px">${i.status}</div>
+      <div>
+        <div style="font-weight:700;color:#ccc">${i.player} <span style="color:#556;font-weight:400">${i.pos} · ${i.role}${statsStr}</span></div>
+        <div style="color:#667;margin-top:1px">${i.injury}</div>
+        <div style="color:#778;margin-top:2px;line-height:1.4">${i.note}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const topSev = getTopInjurySeverity(teamName);
+  const hdrColor = topSev === "critical" ? "#ff7070" : topSev === "high" ? "#f5a623" : "#7fb8ff";
+  return `<div style="margin-top:7px;background:#12111a;border-radius:5px;border:1px solid #2a1a3a;overflow:hidden">
+    <div style="padding:4px 8px;font-size:.62rem;font-weight:700;color:${hdrColor};background:#1a1228;letter-spacing:.06em">🩹 INJURY REPORT</div>
+    <div style="padding:6px 8px">${rows}</div>
+  </div>`;
+}
+
+// ── Weights editor functions ──
+function openWeights() {
+  document.getElementById('nBarthag').value = WEIGHTS.barthag;
+  document.getElementById('wBarthag').value = WEIGHTS.barthag;
+  document.getElementById('nQuad').value    = WEIGHTS.quad;
+  document.getElementById('wQuad').value    = WEIGHTS.quad;
+  document.getElementById('nKP').value      = WEIGHTS.kp;
+  document.getElementById('wKP').value      = WEIGHTS.kp;
+  document.getElementById('nSeed').value    = WEIGHTS.seed;
+  document.getElementById('wSeed').value    = WEIGHTS.seed;
+  document.getElementById('nTempo').value   = WEIGHTS.tempo;
+  document.getElementById('wTempo').value   = WEIGHTS.tempo;
+  document.getElementById('nNIL').value     = WEIGHTS.nil || 13;
+  document.getElementById('wNIL').value     = WEIGHTS.nil || 13;
+  document.getElementById('nHeat').value    = WEIGHTS.heat || 10;
+  document.getElementById('wHeat').value    = WEIGHTS.heat || 10;
+  updateWeightsTotal();
+  document.getElementById('weightsPanel').classList.add('open');
+}
+function closeWeights() {
+  document.getElementById('weightsPanel').classList.remove('open');
+}
+function syncWeight(srcId, dstId) {
+  document.getElementById(dstId).value = document.getElementById(srcId).value;
+  updateWeightsTotal();
+}
+function updateWeightsTotal() {
+  const total = ['nBarthag','nQuad','nKP','nSeed','nTempo','nNIL','nHeat']
+    .reduce((s,id) => s + (parseFloat(document.getElementById(id).value)||0), 0);
+  const el = document.getElementById('weightsTotal');
+  const btn = document.getElementById('applyWeightsBtn');
+  const ok = Math.round(total) === 100;
+  el.textContent = `Total: ${Math.round(total*10)/10}% ${ok ? '✓' : '— must equal 100%'}`;
+  el.className = 'weights-total ' + (ok ? 'ok' : 'warn');
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '0.4';
+}
+function normalizeWeights() {
+  const ids = ['nBarthag','nQuad','nKP','nSeed','nTempo','nNIL','nHeat'];
+  const sliders = ['wBarthag','wQuad','wKP','wSeed','wTempo','wNIL','wHeat'];
+  const vals = ids.map(id => Math.max(0, parseFloat(document.getElementById(id).value)||0));
+  const total = vals.reduce((a,b)=>a+b,0);
+  if (total === 0) return;
+  const norm = vals.map(v => Math.round((v/total)*1000)/10);
+  // Fix rounding to ensure exactly 100
+  const diff = 100 - norm.reduce((a,b)=>a+b,0);
+  norm[0] = Math.round((norm[0]+diff)*10)/10;
+  ids.forEach((id,i) => { document.getElementById(id).value = norm[i]; document.getElementById(sliders[i]).value = norm[i]; });
+  updateWeightsTotal();
+}
+function applyWeights() {
+  WEIGHTS.barthag = parseFloat(document.getElementById('nBarthag').value)||0;
+  WEIGHTS.quad    = parseFloat(document.getElementById('nQuad').value)||0;
+  WEIGHTS.kp      = parseFloat(document.getElementById('nKP').value)||0;
+  WEIGHTS.seed    = parseFloat(document.getElementById('nSeed').value)||0;
+  WEIGHTS.tempo   = parseFloat(document.getElementById('nTempo').value)||0;
+  WEIGHTS.nil     = parseFloat(document.getElementById('nNIL').value)||0;
+  WEIGHTS.heat    = parseFloat(document.getElementById('nHeat').value)||0;
+  // Update header subtitle
+  document.getElementById('weightsSummary').textContent =
+    `barttorvik.com + KenPom + Season Stats | Composite model: Barthag ${WEIGHTS.barthag}% · Quad ${WEIGHTS.quad}% · KP ${WEIGHTS.kp}% · Seed ${WEIGHTS.seed}% · Tempo ${WEIGHTS.tempo}% · NIL ${WEIGHTS.nil}% · 🔥Heat ${WEIGHTS.heat}%`;
+  closeWeights();
+  // Refresh the analysis pane if a game is selected
+  if (window._selectedGame) showAnalysis(window._selectedGame);
+}
+
+// ── Heating Up helpers ────────────────────────────────────────────────────────
+function heatWin(nameA, nameB) {
+  const hA = HEAT_STATS[nameA], hB = HEAT_STATS[nameB];
+  if (!hA || !hB) return 0.5;
+  // logistic function on heat_z delta → naturally bounded [0,1]
+  return 1 / (1 + Math.exp(-0.8 * (hA.heat_z - hB.heat_z)));
+}
+
+function heatBadge(name) {
+  const h = HEAT_STATS[name];
+  if (!h) return '';
+  if (h.heat_z >= 0.28)  return '🔥';
+  if (h.heat_z <= -0.20) return '❄️';
+  return '';
+}
+
+function composite(nameA, nameB, gameId) {
+  const a = getTeam(nameA), b = getTeam(nameB);
+  if (!a || !b) return {comp:50,barthag:50,quad:50,kp:50,seed:50,tempo:50,nil:50,heat:50,adjusted:false,adjOffset:0,rawComp:50};
+
+  // 1. Barthag log5
+  const ba=a.barthag, bb=b.barthag;
+  const denom = ba+bb-2*ba*bb;
+  const pBarth = denom===0 ? 0.5 : (ba - ba*bb)/denom;
+
+  // 2. Quadrant score — lower rank = better
+  const qA = ((365-a.kp_off)/365)*50 + ((365-a.kp_def)/365)*50;
+  const qB = ((365-b.kp_off)/365)*50 + ((365-b.kp_def)/365)*50;
+  const pQuad = (qA+qB)===0 ? 0.5 : qA/(qA+qB);
+
+  // 3. KP overall rank
+  const rA=365-a.kp_rk, rB=365-b.kp_rk;
+  const pKP = (rA+rB)===0 ? 0.5 : rA/(rA+rB);
+
+  // 4. Seed historical
+  const hist = getHistWin(a.seed||8, b.seed||9);
+  const pSeed = (a.seed||8) <= (b.seed||9) ? hist/100 : 1 - hist/100;
+
+  // 5. Tempo
+  const diff = a.adjt - b.adjt;
+  let pTempo = 0.5;
+  if (Math.abs(diff)>4) pTempo = diff>0 ? 0.56 : 0.44;
+  else if (Math.abs(diff)>2) pTempo = diff>0 ? 0.52 : 0.48;
+
+  // 6. NIL Spend edge — direct proxy for transfer portal roster quality.
+  // Higher NIL budgets attract better portal talent; normalised as relative share.
+  // Weight: 15% (above 10% floor — NIL era data shows consistent roster quality correlation).
+  // Source: College Sports Network, On3 valuations, Yahoo Sports NIL spend analysis.
+  const nilA = a.nil_spend || 1.0, nilB = b.nil_spend || 1.0;
+  const pNIL = nilA / (nilA + nilB);
+
+  // 7. Injury penalty — PPG-proportionate probability shift
+  // Models the actual offensive share lost, scaled by severity, capped at 20%.
+  // Replaces the old flat 1.5%-per-starter formula that only shifted ~0.45% per absence.
+  // Validation against 2026 R64: old formula gave UNC 0.9% shift (2 starters OUT);
+  // PPG-aware formula gives 10% shift — correctly flagged VCU and Texas as real threats.
+  function injPenalty(tname) {
+    const tm = getTeam(tname);
+    const teamPPG = (tm && tm.ppg) ? tm.ppg : 72;
+    const inj = INJURIES[tname] || [];
+    let shift = 0;
+    for (const i of inj) {
+      if (i.status !== 'OUT' && i.status !== 'OUT (R1)') continue;
+      const pts = (i.ppg != null) ? i.ppg : (i.role === 'starter' ? 10 : 4);
+      const sev = i.severity === 'critical' ? 1.4 : i.severity === 'high' ? 0.9 : 0.3;
+      shift += (pts / teamPPG) * sev;
+    }
+    return Math.min(shift, 0.20); // cap: no team can lose more than 20% swing from injuries
+  }
+  const injA = injPenalty(nameA), injB = injPenalty(nameB);
+
+  // 8. Heating Up — recent form z-score logistic (last 5 games: PPG, FG%, 3P%)
+  const pHeat = heatWin(nameA, nameB);
+
+  // Apply user-controlled weights (normalized to fractions)
+  const wB = WEIGHTS.barthag/100, wQ = WEIGHTS.quad/100,
+        wK = WEIGHTS.kp/100,      wS = WEIGHTS.seed/100,
+        wT = WEIGHTS.tempo/100,   wN = WEIGHTS.nil/100,
+        wH = (WEIGHTS.heat||0)/100;
+  // Injury applied directly as probability fraction (bypasses wI scaling — PPG formula is self-weighted)
+  let rawComp = wB*pBarth + wQ*pQuad + wK*pKP + wS*pSeed + wT*pTempo + wN*pNIL + wH*pHeat;
+  rawComp = Math.max(0.01, Math.min(0.99, rawComp - injA*0.5 + injB*0.5));
+
+  // Apply per-game manual adjustment (from ADJUSTMENTS store)
+  const adjOffset = (gameId && ADJUSTMENTS[gameId]) ? ADJUSTMENTS[gameId] / 100 : 0;
+  const comp = Math.max(0.01, Math.min(0.99, rawComp + adjOffset));
+
+  return {
+    comp: Math.round(comp*1000)/10,
+    barthag: Math.round(pBarth*1000)/10,
+    quad: Math.round(pQuad*1000)/10,
+    kp: Math.round(pKP*1000)/10,
+    seed: Math.round(pSeed*1000)/10,
+    tempo: Math.round(pTempo*1000)/10,
+    nil: Math.round(pNIL*1000)/10,
+    heat: Math.round(pHeat*1000)/10,
+    rawComp: Math.round(rawComp*1000)/10,
+    adjusted: Math.abs(adjOffset) > 0.001,
+    adjOffset: Math.round(adjOffset*100),
+  };
+}
+
+function trapClass(trap) {
+  if (!trap) return "trap-no";
+  if (trap.includes("LIKELY IN")) return "trap-in";
+  if (trap.includes("POSSIBLE")) return "trap-pos";
+  return "trap-no";
+}
+
+function trapBadge(trap) {
+  if (!trap) return "";
+  if (trap.includes("LIKELY IN")) return `<span class="trapezoid-badge trap-badge-in">● Trapezoid</span>`;
+  if (trap.includes("POSSIBLE")) return `<span class="trapezoid-badge trap-badge-pos">◐ Possible</span>`;
+  return `<span class="trapezoid-badge trap-badge-no">— Out</span>`;
+}
+
+// Find likely next opponent
+function nextOpponent(game, winnerName) {
+  const round = game.round;
+  const nextGames = getAllGamesForRound(round+1);
+  const ng = nextGames.find(g => g.region === game.region || (round>=3 && true));
+  if (!ng) return null;
+  // Find the next-round game that would involve this game's winner
+  const allCurr = getAllGamesForRound(round);
+  const regionGames = allCurr.filter(g => g.region === game.region);
+  const myIdx = regionGames.findIndex(g => g.id === game.id);
+  const pairIdx = Math.floor(myIdx / 2);
+  const nextRoundRegion = (round < 4) ? getAllGamesForRound(round+1).filter(g=>g.region===game.region) : getAllGamesForRound(round+1);
+  const nextG = nextRoundRegion[pairIdx];
+  if (!nextG) return null;
+  const oppGame = (myIdx % 2 === 0) ? regionGames[myIdx+1] : regionGames[myIdx-1];
+  if (!oppGame) return null;
+  const oppName = picks[oppGame.id] || `Winner: ${oppGame.t1}/${oppGame.t2}`;
+  return oppName;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function showRound(round, tabEl) {
+  currentRound = round;
+  currentFilter = 'all';  // reset filter every time round changes
+  setGameFilter('all');
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  tabEl.classList.add("active");
+  renderBracket();
+  document.getElementById("analysisPane").innerHTML = '<div class="ap-placeholder"><h3>← Select Any Matchup</h3><p>Click a game to analyze it before picking a winner.</p></div>';
+  selectedGame = null;
+}
+
+function renderBracket() {
+  const pane = document.getElementById("bracketPane");
+  const games = getAllGamesForRound(currentRound);
+
+  // Update filter count badges every render
+  updateFilterCounts();
+
+  if (currentRound === 5) { // Championship
+    const g = games[0];
+    const t1 = getTeam(g.t1), t2 = getTeam(g.t2);
+    const winner = picks[g.id];
+    let html = `<div style="max-width:600px;margin:0 auto;padding:20px">`;
+    html += `<div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:1.5rem;color:var(--accent);font-weight:700">🏆 NATIONAL CHAMPIONSHIP</div>
+      <div style="color:#778;font-size:.85rem;margin-top:4px">San Antonio, TX — April 6, 2026</div>
+    </div>`;
+    if (winner) {
+      html += `<div class="champion-display"><h3>🏆 YOUR CHAMPION</h3><p style="font-size:1.2rem;font-weight:700;margin-top:6px">${winner}</p>`;
+      const wt = getTeam(winner);
+      if (wt) html += `<p style="color:#aaa;margin-top:4px">T-Rank #${wt.trank} · ${wt.rec} · ${wt.conf}</p>`;
+      html += `</div>`;
+    }
+    const champRisk = riskLevel(detectUpsetRisk(g.t1, g.t2));
+    const champCardCls = champRisk === "high" ? " risk-high" : champRisk === "med" ? " risk-med" : "";
+    const champUpsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
+    html += `<div class="matchup-card${selectedGame===g.id?' selected':''}${champCardCls}${champUpsetCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+      ${teamSlot(g.t1,g,winner)}
+      <div class="divider"></div>
+      ${teamSlot(g.t2,g,winner)}
+      ${gameStatusBarHTML(g.t1, g.t2, g.id)}
+      ${riskFooterHTML(g.t1, g.t2)}
+    </div></div>`;
+    pane.innerHTML = html;
+    return;
+  }
+
+  if (currentRound === 4) { // Final Four
+    const ffFiltered = games.filter(g => gamePassesFilter(g));
+    let html = `<div style="max-width:700px;margin:0 auto;padding:16px">
+      <div style="text-align:center;margin-bottom:16px;color:var(--accent);font-size:1.1rem;font-weight:700">🏟 FINAL FOUR — San Antonio, TX — April 5, 2026</div>`;
+    if (!ffFiltered.length) {
+      html += `<div class="filter-empty"><strong>No ${currentFilter} games</strong>Check back when Final Four games are live, or switch to All.</div>`;
+    } else {
+      ffFiltered.forEach(g => {
+        const winner = picks[g.id];
+        const rFlags = detectUpsetRisk(g.t1, g.t2);
+        const rLvl = riskLevel(rFlags);
+        const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
+        const ffUpsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
+        html += `<div style="margin-bottom:12px">
+          <div style="font-size:.75rem;color:#556;margin-bottom:4px;font-weight:700">${g.region}</div>
+          <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}${ffUpsetCls}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+            ${teamSlot(g.t1,g,winner)}
+            <div class="divider"></div>
+            ${teamSlot(g.t2,g,winner)}
+            ${gameStatusBarHTML(g.t1, g.t2, g.id)}
+            ${riskFooterHTML(g.t1, g.t2)}
+          </div></div>`;
+      });
+    }
+    html += `</div>`;
+    pane.innerHTML = html;
+    return;
+  }
+
+  // Standard round view (0-3) — group by region
+  const rndLabels = ["Round of 64","Round of 32","Sweet 16","Elite Eight"];
+  let html = '';
+  let totalVisible = 0;
+
+  for (const region of REGIONS) {
+    const allRegionGames = games.filter(g => g.region === region);
+    const regionGames   = allRegionGames.filter(g => gamePassesFilter(g));
+    if (!allRegionGames.length) continue;
+    const cls = region.toLowerCase().replace('/','');
+
+    // Always render region header; skip game cards only when filter hides everything
+    if (!regionGames.length) continue; // hide the entire region block when nothing passes
+
+    totalVisible += regionGames.length;
+    html += `<div class="region-block">
+      <div class="region-hdr ${cls}-hdr">${region} Region — ${rndLabels[currentRound]}</div>
+      <div>`;
+    regionGames.forEach(g => {
+      const winner = picks[g.id];
+      const rFlags = detectUpsetRisk(g.t1, g.t2);
+      const rLvl = riskLevel(rFlags);
+      const rCardCls = rLvl === "high" ? " risk-high" : rLvl === "med" ? " risk-med" : "";
+      const upsetCls = isUpsetConfirmed(g.t1, g.t2, g.id) ? ' upset-confirmed' : '';
+      // Live indicator border
+      const isLive = gameFilterStatus(g) === 'live';
+      const liveBorder = isLive ? ';border:1.5px solid #c0392b' : '';
+      html += `<div style="margin-bottom:6px;max-width:240px">
+        <div class="matchup-card${selectedGame===g.id?' selected':''}${rCardCls}${upsetCls}" style="${liveBorder}" onclick="selectGame('${g.id}',${JSON.stringify(g).replace(/"/g,'&quot;')})">
+          ${teamSlot(g.t1,g,winner)}
+          <div class="divider"></div>
+          ${teamSlot(g.t2,g,winner)}
+          ${gameStatusBarHTML(g.t1, g.t2, g.id)}
+          ${riskFooterHTML(g.t1, g.t2)}
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Empty state when filter has no results across all regions
+  if (!totalVisible) {
+    const filterLabel = {live:'live',final:'completed final'}[currentFilter] || 'matching';
+    html = `<div class="filter-empty">
+      <strong>No ${filterLabel} games in ${rndLabels[currentRound]}</strong>
+      ${currentFilter === 'live'
+        ? 'No games are in progress right now. Check back during game windows or switch to All.'
+        : 'No games have been finalized in this round yet. Switch to All to see scheduled matchups.'}
+    </div>`;
+  }
+
+  pane.innerHTML = html;
+}
+
+function teamSlot(name, game, winner) {
+  const t = getTeam(name);
+  const seed = t ? t.seed : '?';
+  const tc = trapClass(t?.trap);
+  const isWinner = winner === name;
+  // Extract this team's opponent so getScoreHTML can scope to the correct game
+  const opponent = game ? (game.t1 === name ? game.t2 : game.t1) : null;
+  const isLoser  = winner && winner !== name;
+  let cls = '';
+  if (isWinner) cls = 'winner';
+  if (isLoser)  cls = 'loser';
+  const ffNote = FF_NOTES[name] ? ` title="${FF_NOTES[name]}"` : '';
+  // Injury badge: show 🩹 if team has confirmed OUT starters/key players
+  const injSev = getTopInjurySeverity(name);
+  const injBadge = (injSev === "critical" || injSev === "high")
+    ? `<span style="font-size:.62rem;opacity:.9;flex-shrink:0" title="Injury alert — tap to see details">🩹</span>`
+    : '';
+  // Heat badge: 🔥 top third, ❄️ bottom third of recent-form field
+  const hb = heatBadge(name);
+  const heatBadgeHtml = hb ? `<span style="font-size:.62rem;flex-shrink:0" title="Heating Up metric — recent form (L5 games)">${hb}</span>` : '';
+  return `<div class="team-slot ${cls}"${ffNote}>
+    <span class="seed-badge">${seed}</span>
+    <span class="tname">${name}${FF_NOTES[name]?'*':''}</span>
+    ${injBadge}${heatBadgeHtml}
+    <div class="trap-dot ${tc}"></div>
+    ${getScoreHTML(name, opponent)}
+  </div>`;
+}
+
+function selectGame(gid, game) {
+  selectedGame = gid;
+  renderBracket();
+  showAnalysis(game);
+}
+
+function showAnalysis(game) {
+  window._selectedGame = game;
+  openMobileDrawer();
+  const ap = document.getElementById("analysisPane");
+  const t1 = getTeam(game.t1);
+  const t2 = getTeam(game.t2);
+  const winner = picks[game.id];
+
+  if (!t1 && !t2) {
+    ap.innerHTML = `<div class="ap-body"><div class="ap-title">MATCHUP ANALYSIS</div>
+      <p style="color:#556;font-size:.85rem">Teams will be determined as bracket advances. Make picks in earlier rounds first.</p></div>`;
+    return;
+  }
+
+  const c = composite(game.t1, game.t2, game.id);
+  const c2 = Math.round((100-c.comp)*10)/10;
+
+  const factors = [
+    {label:"Barthag (Log5)",pct:c.barthag,wt:WEIGHTS.barthag+"%"},
+    {label:"KP Quadrant",   pct:c.quad,   wt:WEIGHTS.quad+"%"},
+    {label:"KP Overall",    pct:c.kp,     wt:WEIGHTS.kp+"%"},
+    {label:"Seed History",  pct:c.seed,   wt:WEIGHTS.seed+"%"},
+    {label:"Tempo Edge",    pct:c.tempo,  wt:WEIGHTS.tempo+"%"},
+    {label:"NIL Spend",     pct:c.nil,    wt:(WEIGHTS.nil||13)+"%"},
+    {label:"🔥 Heating Up", pct:c.heat,   wt:(WEIGHTS.heat||0)+"%"},
+  ];
+
+  const recommendation = c.comp >= 65 ? `<strong style="color:var(--teal)">${game.t1}</strong> (strong: ${c.comp}%)` :
+                         c.comp <= 35 ? `<strong style="color:#e67e22">${game.t2}</strong> (strong: ${c2}%)` :
+                         `TOSS-UP — use context below`;
+
+  const histWin = t1 && t2 ? getHistWin(t1.seed||8, t2.seed||9) : 50;
+  const seedStr1 = t1?.seed, seedStr2 = t2?.seed;
+  const lowerSeed = Math.min(seedStr1||8, seedStr2||9);
+  const histFav = (seedStr1<=seedStr2) ? game.t1 : game.t2;
+  const histPct = seedStr1<=seedStr2 ? histWin : 100-histWin;
+
+  function statBlock(t, tname) {
+    if (!t) return `<div class="team-box"><div class="tname-big">${tname}</div><p style="font-size:.7rem;color:#446;margin-top:6px">Advancing team — stats available after pick</p></div>`;
+    return `<div class="team-box ${t===getTeam(game.t1)?'t1':'t2'}">
+      <div class="tname-big">${tname}</div>
+      <div class="seed-str">${t.region} • #${t.seed} seed • ${t.conf} • ${t.rec}</div>
+      ${trapBadge(t.trap)}
+      <div class="stat-grid">
+        <div class="stat-item">T-Rank <span>#${t.trank}</span></div>
+        <div class="stat-item">KP Rk <span>#${t.kp_rk}</span></div>
+        <div class="stat-item">Barthag <span>${t.barthag.toFixed(3)}</span></div>
+        <div class="stat-item">AdjT <span>${t.adjt}</span></div>
+        <div class="stat-item">AdjOE <span>${t.adjoe}</span></div>
+        <div class="stat-item">AdjDE <span>${t.adjde}</span></div>
+        <div class="stat-item">KP Off <span>#${t.kp_off}</span></div>
+        <div class="stat-item">KP Def <span>#${t.kp_def}</span></div>
+        <div class="stat-item">PPG <span>${t.ppg}</span></div>
+        <div class="stat-item">Opp PPG <span>${t.opp_ppg}</span></div>
+        <div class="stat-item">FG% <span>${t.fg}%</span></div>
+        <div class="stat-item">3PT% <span>${t.three}%</span></div>
+        <div class="stat-item">NIL Budget <span style="color:#f1c40f">$${(t.nil_spend||0).toFixed(1)}M</span></div>
+      </div>
+      ${t.profile && t.profile!=='—' ? `<div style="font-size:.63rem;color:#889;margin-top:5px;font-style:italic">${t.profile}</div>` : ''}
+      ${injuryBlockHTML(tname)}
+      ${t.starters && t.starters.length ? `<div style="margin-top:7px">
+        <div style="font-size:.59rem;font-weight:700;color:#556;letter-spacing:.07em;margin-bottom:3px;text-transform:uppercase">Starting Five</div>
+        ${t.starters.map(s => `<div style="font-size:.64rem;display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #1a1228;">
+          <span style="color:${s.injured?'#e74c3c':'#b8c0cc'}">${s.name} <span style="color:#556;font-size:.58rem">${s.pos}</span>${s.injured?` <span style="color:#e74c3c;font-size:.58rem;font-weight:700">${s.status||'Q'}</span>`:''}</span>
+          <span style="color:#778;font-size:.62rem">${s.ppg} ppg</span>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>`;
+  }
+
+  let factorHTML = factors.map(f => {
+    const pct = f.pct;
+    const pct2 = Math.round((100-pct)*10)/10;
+    const isT1 = pct >= 50;
+    return `<div class="factor-row">
+      <div class="factor-label">${f.label} <span style="color:#445">(${f.wt})</span></div>
+      <div class="factor-bar">
+        <div class="factor-fill f1" style="width:${pct}%"></div>
+      </div>
+      <div class="factor-pct" style="color:${isT1?'var(--teal)':'#e67e22'}">${isT1?pct:pct2}% ${isT1?'T1':'T2'}</div>
+    </div>`;
+  }).join('');
+
+  // Tempo narrative
+  const tempoNarr = t1 && t2 ? (() => {
+    const diff = t1.adjt - t2.adjt;
+    if (Math.abs(diff) < 2) return `Both teams play at similar pace (${t1.adjt} vs ${t2.adjt}) — tempo is neutral.`;
+    const faster = diff > 0 ? game.t1 : game.t2;
+    const gap = Math.abs(diff).toFixed(1);
+    const strength = gap > 4 ? "significant" : "moderate";
+    return `${faster} prefers a faster pace (gap: ${gap}). ${Math.abs(diff)>4?"Likely dictates game tempo.":"Minor pace advantage."}`;
+  })() : "";
+
+  // Next opponent
+  let nextOppHTML = '';
+  if (!winner) {
+    const nextOpp1 = nextOpponent(game, game.t1);
+    const nextOpp2 = nextOpponent(game, game.t2);
+    if (nextOpp1 || nextOpp2) {
+      nextOppHTML = `<div class="next-opp">
+        <div class="next-opp-title">LIKELY NEXT OPPONENT (if advancing)</div>
+        <div class="next-opp-val" style="margin-top:4px">
+          ${nextOpp1?`<b>${game.t1}:</b> vs ${nextOpp1}<br>`:''}
+          ${nextOpp2?`<b>${game.t2}:</b> vs ${nextOpp2}`:''}
+        </div>
+      </div>`;
+    }
+  } else {
+    const nextOpp = nextOpponent(game, winner);
+    if (nextOpp) {
+      nextOppHTML = `<div class="next-opp">
+        <div class="next-opp-title">NEXT OPPONENT for ${winner}</div>
+        <div class="next-opp-val">${nextOpp}</div>
+      </div>`;
+    }
+  }
+
+  const pickBtns = !winner ? `
+    <div class="pick-btns">
+      <button class="pick-btn t1-btn" onclick="makePick('${game.id}','${game.t1.replace(/'/g,"\\'")}',${JSON.stringify(game).replace(/"/g,'&quot;')})">
+        ${game.t1} wins →
+      </button>
+      <button class="pick-btn t2-btn" onclick="makePick('${game.id}','${game.t2.replace(/'/g,"\\'")}',${JSON.stringify(game).replace(/"/g,'&quot;')})">
+        ← ${game.t2} wins
+      </button>
+    </div>` :
+    `<div style="text-align:center;margin-top:8px">
+      <span style="color:#4fc3a1;font-weight:700">✓ ${winner} advances</span>
+      <button style="margin-left:8px;background:#1a2f47;border:1px solid #2a4060;color:#aaa;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:.75rem" onclick="undoPick('${game.id}',${JSON.stringify(game).replace(/"/g,'&quot;')})">undo</button>
+    </div>`;
+
+  ap.innerHTML = `<div class="ap-body">
+    <div class="ap-title">${game.region} — MATCHUP ANALYSIS</div>
+
+    <div class="team-compare">
+      ${statBlock(t1, game.t1)}
+      <div class="vs-col">VS</div>
+      ${statBlock(t2, game.t2)}
+    </div>
+
+    <div class="prob-section">
+      <div class="prob-title">⚡ COMPOSITE WIN PROBABILITY${c.adjusted ? ' <span style="color:#f5a623;font-size:.65rem;font-weight:400">(adjusted)</span>' : ''}</div>
+      <div class="composite-bar-wrap">
+        <div class="composite-bar-t1" style="width:${c.comp}%">${c.comp>=20?c.comp+'%':''}</div>
+        <div class="composite-bar-t2" style="width:${c2}%">${c2>=20?c2+'%':''}</div>
+      </div>
+      <div class="prob-label">← ${game.t1} ${c.comp}% &nbsp;|&nbsp; ${game.t2} ${c2}% →</div>
+      ${c.adjusted ? `<div style="font-size:.62rem;color:#f5a623;text-align:center;margin-top:3px">🎚 Manual override: ${c.adjOffset > 0 ? '+' : ''}${c.adjOffset}% applied · base model: ${c.rawComp}%</div>` : ''}
+    </div>
+
+    <div style="margin-bottom:10px">
+      <div style="font-size:.72rem;color:#667;margin-bottom:6px;font-weight:700">FACTOR BREAKDOWN (for ${game.t1})</div>
+      ${factorHTML}
+    </div>
+
+    <div style="margin-bottom:10px;font-size:.75rem;background:#1a2f47;border-radius:5px;padding:8px">
+      <div style="color:#667;font-weight:700;margin-bottom:4px">RECOMMENDATION</div>
+      <div>${recommendation}</div>
+      ${tempoNarr?`<div style="margin-top:5px;color:#889;font-style:italic">${tempoNarr}</div>`:''}
+      <div style="margin-top:5px;color:#556;font-size:.68rem">Seed history: ${histFav} wins ${histPct.toFixed(0)}% of R64 games as ${lowerSeed}-seed</div>
+    </div>
+
+    ${riskSectionHTML(game.t1, game.t2)}
+    ${adjSectionHTML(game.id, game.t1, game.t2)}
+    ${pickBtns}
+    ${nextOppHTML}
+  </div>`;
+}
+
+function makePick(gid, winner, game) {
+  picks[gid] = winner;
+  selectedGame = gid;
+  renderBracket();
+  showAnalysis(game);
+}
+
+function undoPick(gid, game) {
+  delete picks[gid];
+  // Also clear all downstream picks that depended on this game's winner
+  clearDownstream(gid);
+  renderBracket();
+  showAnalysis(game);
+}
+
+function clearDownstream(gid) {
+  // Simple approach: find games in subsequent rounds that reference the old winner
+  for (let r = 1; r <= 5; r++) {
+    const rGames = getAllGamesForRound(r);
+    rGames.forEach(g => {
+      if (!TEAMS[g.t1] || !TEAMS[g.t2]) {
+        delete picks[g.id];
+      }
+    });
+  }
+}
+
+function resetBracket() {
+  picks = {};
+  selectedGame = null;
+  currentRound = 0;
+  document.querySelectorAll(".tab").forEach((t,i) => t.classList.toggle("active", i===0));
+  renderBracket();
+  document.getElementById("analysisPane").innerHTML = '<div class="ap-placeholder"><h3>← Select Any Matchup</h3><p>Click a game to analyze it. All picks cleared.</p></div>';
+}
+
+// ── Full Bracket View ─────────────────────────────────────────────────────────
+
+function fbTeamRow(name, gameId) {
+  if (!name) return `<div class="fb-team"><span class="fb-s">?</span><span class="fb-tn" style="color:#2a4060">TBD</span></div>`;
+  const t   = getTeam(name);
+  const seed = t ? t.seed : '?';
+  const w   = picks[gameId];
+  const isW = w === name, isL = w && w !== name;
+  const injSev = getTopInjurySeverity(name);
+  const injMark = (injSev === 'critical' || injSev === 'high') ? ' 🩹' : '';
+  return `<div class="fb-team ${isW?'fb-win':''} ${isL?'fb-lose':''}">
+    <span class="fb-s">${seed}</span><span class="fb-tn">${name}${injMark}</span>
+  </div>`;
+}
+
+function fbCard(g) {
+  if (!g || (!g.t1 && !g.t2)) return `<div class="fb-card-tbd">TBD</div>`;
+  // Add border tint if high upset risk
+  const rLvl = riskLevel(detectUpsetRisk(g.t1 || '', g.t2 || ''));
+  const bCls = rLvl === 'high' ? ' style="border-color:#8b2020"' : rLvl === 'med' ? ' style="border-color:#7a5200"' : '';
+  return `<div class="fb-card"${bCls}>
+    ${fbTeamRow(g.t1, g.id)}
+    <div class="fb-fdiv"></div>
+    ${fbTeamRow(g.t2, g.id)}
+  </div>`;
+}
+
+function buildBracketViewHTML() {
+  const ROW_H    = 42;    // px per R64 game slot
+  const REG_H    = 8 * ROW_H; // = 336px per region
+  const COL_W    = 120;   // px per round column (matches fb-card width + 2px padding)
+  const roundLabels = ['R64','R32','S16','E8'];
+  const regionColors = { East:'var(--east)', West:'var(--west)', Midwest:'var(--midwest)', South:'var(--south)' };
+
+  let html = `<div class="fb-outer">`;
+
+  for (const region of REGIONS) {
+    const bgColor = regionColors[region] || '#555';
+    html += `<div class="fb-region">
+      <div class="fb-rlabel" style="background:${bgColor}">${region} Region</div>
+      <div class="fb-rounwrap">`;
+
+    for (let r = 0; r <= 3; r++) {
+      const games = getAllGamesForRound(r).filter(g => g.region === region);
+      html += `<div class="fb-col-wrap">
+        <div class="fb-col-label">${roundLabels[r]}</div>
+        <div class="fb-col" style="height:${REG_H}px;width:${COL_W}px">
+          ${games.map(g => `<div class="fb-slot">${fbCard(g)}</div>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  // Final Four + Championship
+  const ffGames  = getAllGamesForRound(4);
+  const champGame = getAllGamesForRound(5)[0];
+  const champWin  = champGame ? picks[champGame.id] : null;
+  const champTeam = champWin ? getTeam(champWin) : null;
+
+  html += `<div class="fb-finals">
+    <div class="fb-finals-hdr">🏟 Final Four & Championship — San Antonio · Apr 5-6 2026</div>
+    <div class="fb-finals-row">
+      ${ffGames.map(g => `<div class="fb-ff-item">
+        <div class="fb-ff-label">${g.region}</div>
+        ${fbCard(g)}
+      </div>`).join('')}
+      <div class="fb-champ-box">
+        <div class="fb-champ-title">🏆 NATIONAL CHAMPION</div>
+        ${champWin
+          ? `<div class="fb-champ-winner">${champWin}</div>
+             <div class="fb-champ-sub">${champTeam ? `#${champTeam.seed} seed · ${champTeam.conf} · ${champTeam.rec}` : ''}</div>`
+          : (champGame && (champGame.t1 || champGame.t2)
+              ? fbCard(champGame)
+              : `<div class="fb-champ-tbd">Complete picks to reveal</div>`)}
+      </div>
+    </div>
+  </div>`;
+
+  html += `</div>`;
+  return html;
+}
+
+function showFullBracket() {
+  document.getElementById('fbModalBody').innerHTML = buildBracketViewHTML();
+  document.getElementById('fbOverlay').classList.add('open');
+  // iOS Safari body-scroll lock
+  const sy = window.scrollY;
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${sy}px`;
+  document.body.style.width = '100%';
+  document.body.dataset.fbSy = sy;
+}
+
+function closeFullBracket() {
+  document.getElementById('fbOverlay').classList.remove('open');
+  const sy = parseInt(document.body.dataset.fbSy || '0');
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.width = '';
+  window.scrollTo(0, sy);
+}
+
+// Print from inside the modal (modal must already be open)
+function doPrintBracket() {
+  // Ensure body content is populated before printing
+  if (!document.getElementById('fbOverlay').classList.contains('open')) {
+    document.getElementById('fbModalBody').innerHTML = buildBracketViewHTML();
+    document.getElementById('fbOverlay').classList.add('open');
+  }
+  window.print();
+}
+
+// Print directly from header button — opens modal first, then prints
+function quickPrintBracket() {
+  showFullBracket();
+  // Small delay so the modal renders before the print dialog opens
+  setTimeout(() => window.print(), 350);
+}
+
+// ── End Full Bracket View ──────────────────────────────────────────────────────
+
+// ── Live Scores (ESPN public API · 60s auto-refresh · no API key required) ───
+const ESPN_TO_BRACKET = {
+  // Abbreviation / spelling differences ESPN → our bracket
+  "ohio state":"Ohio St.","ohio st":"Ohio St.",
+  "michigan st":"Michigan St.","michigan state":"Michigan St.",
+  "n dakota st":"North Dakota St.","north dakota st":"North Dakota St.","north dakota state":"North Dakota St.",
+  "hawai'i":"Hawaii","hawai\u02BBi":"Hawaii",
+  "mcneese":"McNeese St.",
+  "pennsylvania":"Penn",
+  "uconn":"Connecticut",
+  "n iowa":"Northern Iowa","northern iowa":"Northern Iowa",
+  "utah st":"Utah St.","utah state":"Utah St.",
+  "kennesaw st":"Kennesaw St.","kennesaw state":"Kennesaw St.",
+  "iowa st":"Iowa St.","iowa state":"Iowa St.",
+  "tennessee st":"Tennessee St.","tennessee state":"Tennessee St.",
+  "wright st":"Wright St.","wright state":"Wright St.",
+  "st. john's":"St. John's","st john's":"St. John's","st. johns":"St. John's",
+  "saint mary's":"Saint Mary's","saint marys":"Saint Mary's",
+  "prairie view":"Prairie View A&M","prairie view a&m":"Prairie View A&M",
+  "liu":"LIU","long island":"LIU",
+  "miami (oh)":"Miami OH","miami oh":"Miami OH","miami ohio":"Miami OH",
+  "miami fl":"Miami FL",
+  "cal baptist":"Cal Baptist","california baptist":"Cal Baptist","ca baptist":"Cal Baptist",
+  "south florida":"South Florida",
+  "n carolina":"North Carolina","unc":"North Carolina","north carolina tar heels":"North Carolina",
+  "nc state":"North Carolina St.","n.c. state":"North Carolina St.",
+  "vcu":"VCU","virginia commonwealth":"VCU",
+  "ucf":"UCF","central florida":"UCF",
+  "usc":"USC","southern california":"USC",
+  "smu":"SMU","southern methodist":"SMU",
+  "lsu":"LSU","louisiana state":"LSU",
+  "tcu":"TCU","texas christian":"TCU",
+  "byu":"BYU","brigham young":"BYU",
+  "g washington":"George Washington","george washington":"George Washington",
+  "queens":"Queens",
+  "high point":"High Point",
+  "saint louis":"Saint Louis",
+  "liu":"LIU",
+};
+
+// Build normalized bracket-name lookup: normKey → canonical name
+function _normN(n){return n.toLowerCase().replace(/[.\u2019'\-()]/g,'').replace(/\s+/g,' ').trim();}
+const _BMAP={};
+(function(){for(const k of Object.keys(TEAMS)){_BMAP[_normN(k)]=k;}})();
+
+function _espnToBracket(short,full){
+  // Normalize variants of "Miami" — ESPN uses same short name for both
+  // Disambiguate by checking full name
+  if(/miami/i.test(short)){
+    if(/ohio/i.test(full)||/\(oh\)/i.test(full)) return "Miami OH";
+    return "Miami FL";
+  }
+  const checks=[short, _normN(short), _normN(full.replace(/\b(Blue Devils?|Wildcats?|Bulldogs?|Bears?|Tigers?|Eagles?|Panthers?|Owls?|Rams?|Lions?|Cowboys?|Longhorns?|Cougars?|Aggies?|Razorbacks?|Gators?|Tar Heels?|Illini|Buckeyes?|Badgers?|Hoosiers?|Hawkeyes?|Volunteers?|Commodores?|Crimson Tide|Cardinals?|Bruins?|Trojans?|Boilermakers?|Spartans?|Wolverines?|Fighting Illini|Hurricanes?|Seminoles?|Demon Deacons?|Hokies?|Cavaliers?|Knights?|Bulls?|Quakers?|Bison|Saints?|Billikens?|Salukis?|Gaels?|Waves?|Broncos?|Tritons?|Highlanders?|Zips?|Flyers?|Pilots?|Roadrunners?|Anteaters?|Falcons?|Racers?|Colonels?|Monarchs?|Dukes?|Mavericks?|Lumberjacks?|Mustangs?|Horned Frogs?|Rebels?|Fighting Hawks?|Runnin|Toreros?|Dons?)\b/gi,'').trim())];
+  for(const c of checks){
+    const lo=c.toLowerCase();
+    if(ESPN_TO_BRACKET[lo]) return ESPN_TO_BRACKET[lo];
+    const norm=_normN(c);
+    if(_BMAP[norm]) return _BMAP[norm];
+  }
+  return null;
+}
+
+let LIVE_SCORES = {};
+let _lsFetchTick = 0;
+let _lsLastUpdate = 0;
+
+// ── localStorage cache for FINAL results — persists across day boundaries ──
+const _LS_KEY = 'ncaa26_finals_v3';
+function _loadCachedFinals(){
+  try{ return JSON.parse(localStorage.getItem(_LS_KEY)||'{}'); }
+  catch(e){ return {}; }
+}
+function _saveCachedFinals(scores){
+  try{
+    const toSave={};
+    for(const [k,v] of Object.entries(scores)){
+      if(_isFinalStatus(v.status)) toSave[k]=v; // persist all final variants (OT, etc.)
+    }
+    localStorage.setItem(_LS_KEY, JSON.stringify(toSave));
+  } catch(e){}
+}
+
+// Status priority: higher number = more authoritative.
+// Prevents a SCHEDULED future game from overwriting a FINAL past game for the same team.
+function _stPriority(st){
+  if(!st) return 0;
+  if(st==='STATUS_IN_PROGRESS'||st==='STATUS_HALFTIME'||st==='STATUS_END_PERIOD') return 3;
+  if(st==='STATUS_FINAL'||st.startsWith('STATUS_FINAL')) return 2;
+  if(st==='STATUS_SCHEDULED'||st==='STATUS_PREGAME') return 1;
+  return 0;
+}
+
+async function fetchLiveScores(){
+  const tick = ++_lsFetchTick;
+  try {
+    // Restore cached finals first — they persist even as ESPN rolls off old dates
+    const cached = _loadCachedFinals();
+
+    const today = new Date();
+    const dates = [];
+    // Fetch -2 to +2 days to cover R64/R32 spanning multiple days
+    for(let i=-2; i<=2; i++){
+      const d = new Date(today);
+      d.setDate(d.getDate()+i);
+      dates.push(d.toISOString().slice(0,10).replace(/-/g,''));
+    }
+    const fresh = {};
+    for(const dt of dates){
+      let data;
+      try{
+        // No groups filter — ensures all tournament games are returned; limit=200 for peak days
+        const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?limit=200&dates=${dt}`);
+        data = await r.json();
+      } catch(e){ continue; }
+      for(const ev of (data.events||[])){
+        const comp = ev.competitions?.[0]; if(!comp) continue;
+        const st   = comp.status?.type?.name || 'STATUS_SCHEDULED';
+        const clock = comp.status?.displayClock || '';
+        const period = comp.status?.period || 0;
+        const date  = comp.date;
+        const competitors = comp.competitors||[];
+        for(const cmp of competitors){
+          const short = cmp.team?.shortDisplayName||'';
+          const full  = cmp.team?.displayName||'';
+          const opp   = competitors.find(c=>c!==cmp);
+          const bName = _espnToBracket(short, full);
+          if(!bName) continue;
+          // Also store the opponent bracket name so scores can be scoped to the correct game
+          const oppBName = _espnToBracket(opp?.team?.shortDisplayName||'', opp?.team?.displayName||'');
+          const incoming = {
+            score:    parseInt(cmp.score||'0'),
+            oppScore: parseInt(opp?.score||'0'),
+            status: st, clock, period, date,
+            isWinner: cmp.winner === true,
+            opp: oppBName  // which opponent this score entry belongs to
+          };
+          // Only overwrite if incoming status is equally or more authoritative.
+          // This prevents SCHEDULED (future R32) from clobbering FINAL (past R64).
+          const existing = fresh[bName];
+          if(!existing || _stPriority(st) >= _stPriority(existing.status)){
+            fresh[bName] = incoming;
+          }
+        }
+      }
+    }
+    if(tick === _lsFetchTick){
+      // Merge: cached finals fill historical gaps; fresh data takes priority for live games
+      LIVE_SCORES = {...cached, ...fresh};
+      _saveCachedFinals(LIVE_SCORES);
+      _lsLastUpdate = Date.now();
+      applyLiveResultsToPicks();
+      renderBracket();
+    }
+  } catch(e){ console.warn('fetchLiveScores:', e); }
+}
+
+function _fmtTipoff(isoDate){
+  try{
+    const d = new Date(isoDate);
+    return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York',hour12:true})+' ET';
+  } catch{ return ''; }
+}
+
+function getScoreHTML(name, opponent){
+  // opponent param gates score to the correct game — prevents R64 scores showing on R32+ cards
+  const d = _lsForGame(name, opponent); if(!d) return '';
+  if(_isFinalStatus(d.status)){
+    return `<span class="sc-score ${d.isWinner?'sc-win':'sc-loss'}">${d.score}</span>`;
+  }
+  if(_isLiveStatus(d.status)){
+    return `<span class="sc-score sc-live">${d.score}</span>`;
+  }
+  return '';
+}
+
+// ── Auto-advance confirmed winners into picks[] ──────────────────────────────
+// Resolves winner for a game from LIVE_SCORES — returns team name or null
+function _winnerFromScores(g){
+  const d1 = _lsForGame(g.t1, g.t2);
+  const d2 = _lsForGame(g.t2, g.t1);
+  const f1 = _isFinalStatus(d1?.status), f2 = _isFinalStatus(d2?.status);
+  if(!f1 && !f2) return null;
+  // Prefer explicit isWinner=true flag
+  if(d1?.isWinner===true) return g.t1;
+  if(d2?.isWinner===true) return g.t2;
+  // Infer from loser flag
+  if(f1 && d1?.isWinner===false) return g.t2;
+  if(f2 && d2?.isWinner===false) return g.t1;
+  // Infer from score if both available and final
+  if(f1 && f2 && d1.score !== d2.score) return d1.score > d2.score ? g.t1 : g.t2;
+  return null;
+}
+
+// Write confirmed FINAL winners into picks[] so they cascade to the next round.
+// Only sets entries where both team names are known real teams (not "Winner of…" placeholders).
+function applyLiveResultsToPicks(){
+  // Process rounds 0–3 in order so each round's picks feed into the next
+  for(let round=0; round<=3; round++){
+    const games = getAllGamesForRound(round);
+    for(const g of games){
+      if(!TEAMS[g.t1] || !TEAMS[g.t2]) continue; // skip unresolved placeholder slots
+      const winner = _winnerFromScores(g);
+      if(winner) picks[g.id] = winner;
+    }
+  }
+  // Final Four — only if both slots resolved to real teams
+  const ffGames = buildFFGames();
+  for(const g of ffGames){
+    if(!TEAMS[g.t1] || !TEAMS[g.t2]) continue;
+    const winner = _winnerFromScores(g);
+    if(winner) picks[g.id] = winner;
+  }
+  // Championship
+  const champGames = buildChampGame();
+  for(const g of champGames){
+    if(!TEAMS[g.t1] || !TEAMS[g.t2]) continue;
+    const winner = _winnerFromScores(g);
+    if(winner) picks[g.id] = winner;
+  }
+}
+
+function isUpsetConfirmed(t1, t2, gameId){
+  const d1 = _lsForGame(t1, t2), d2 = _lsForGame(t2, t1);
+  const anyFinal = _isFinalStatus(d1?.status) || _isFinalStatus(d2?.status);
+  if(!anyFinal) return false;
+  const lvl = riskLevel(detectUpsetRisk(t1, t2));
+  if(lvl === 'clean' || lvl === 'low') return false;
+  const c = composite(t1, t2, gameId);
+  const [fav, dog] = c.comp >= 0.5 ? [t1, t2] : [t2, t1];
+  const dDog = _lsForGame(dog, fav), dFav = _lsForGame(fav, dog);
+  if(dDog?.isWinner === true) return true;
+  if(dFav?.isWinner === false && dFav?.status === 'STATUS_FINAL') return true;
+  if(dDog && dFav && dDog.status==='STATUS_FINAL'){
+    return dDog.score > dFav.score;
+  }
+  return false;
+}
+
+function gameStatusBarHTML(t1, t2, gameId){
+  // Use _lsForGame so only data from THIS specific matchup is used — no cross-round bleed
+  const d1 = _lsForGame(t1, t2), d2 = _lsForGame(t2, t1);
+  const d = (_stPriority(d1?.status) >= _stPriority(d2?.status)) ? d1 : d2;
+  if(!d) return '';
+  if(_isFinalStatus(d.status)){
+    if(isUpsetConfirmed(t1, t2, gameId)){
+      return `<div class="gsb gsb-upset"><span class="crown-icon">👑</span>&nbsp;Upset Called&nbsp;·&nbsp;FINAL</div>`;
+    }
+    return `<div class="gsb gsb-final">FINAL</div>`;
+  }
+  if(d.status==='STATUS_HALFTIME'){
+    return `<div class="gsb gsb-live"><span class="live-dot"></span>HALFTIME</div>`;
+  }
+  if(d.status==='STATUS_IN_PROGRESS'||d.status==='STATUS_END_PERIOD'){
+    const p = d.period===1?'1H': d.period===2?'2H': d.period>2?`OT${d.period>3?d.period-2:''}`: '';
+    return `<div class="gsb gsb-live"><span class="live-dot"></span>LIVE&nbsp;·&nbsp;${d.clock}&nbsp;${p}</div>`;
+  }
+  if(d.status==='STATUS_SCHEDULED'||d.status==='STATUS_PREGAME'){
+    const tip = _fmtTipoff(d.date);
+    return tip ? `<div class="gsb gsb-sched">⏰&nbsp;${tip}</div>` : '';
+  }
+  return '';
+}
+
+// ── Smart refresh — 30s when games are live, 60s otherwise ───────────────────
+let _refreshTimer = null;
+function _scheduleNextFetch(){
+  if(_refreshTimer) clearTimeout(_refreshTimer);
+  const hasLive = Object.values(LIVE_SCORES).some(d => _isLiveStatus(d.status));
+  _refreshTimer = setTimeout(() => { fetchLiveScores().then(_scheduleNextFetch); }, hasLive ? 30000 : 60000);
+}
+
+// ── Init
+// Restore cached finals immediately so bracket shows confirmed results on first paint
+LIVE_SCORES = _loadCachedFinals();
+applyLiveResultsToPicks();
+renderBracket();
+fetchLiveScores().then(_scheduleNextFetch);
+</script>
+</body>
+</html>
