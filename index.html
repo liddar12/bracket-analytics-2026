@@ -409,7 +409,7 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 <header>
   <div>
     <h1>🏀 Jimmy Liddar's 2026 Bracket Analytics</h1>
-    <p id="weightsSummary">barttorvik.com + KenPom + Season Stats | NIL Era Model: Barthag 35% · Quadrant 35% · KP Rank 18% · Seeds 8% · Tempo 4%</p>
+    <p id="weightsSummary">barttorvik.com + KenPom + Season Stats | Composite model: Barthag 27% · Quad 24% · KP 13% · Seed 6% · Tempo 4% · NIL 13% · 🔥Heat 10%</p>
   </div>
   <div style="display:flex;align-items:center;gap:6px">
     <div class="legend">
@@ -433,33 +433,38 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
     <div class="wm-sub">Adjust how each factor contributes to win probability. Must total 100%.</div>
     <div class="weight-row">
       <label>Barthag (Log5)</label>
-      <input type="range" class="weight-slider" id="wBarthag" min="0" max="100" value="30" oninput="syncWeight('wBarthag','nBarthag')">
-      <input type="number" class="weight-num" id="nBarthag" min="0" max="100" value="30" oninput="syncWeight('nBarthag','wBarthag')">%
+      <input type="range" class="weight-slider" id="wBarthag" min="0" max="100" value="27" oninput="syncWeight('wBarthag','nBarthag')">
+      <input type="number" class="weight-num" id="nBarthag" min="0" max="100" value="27" oninput="syncWeight('nBarthag','wBarthag')">%
     </div>
     <div class="weight-row">
       <label>KP Quadrant</label>
-      <input type="range" class="weight-slider" id="wQuad" min="0" max="100" value="30" oninput="syncWeight('wQuad','nQuad')">
-      <input type="number" class="weight-num" id="nQuad" min="0" max="100" value="30" oninput="syncWeight('nQuad','wQuad')">%
+      <input type="range" class="weight-slider" id="wQuad" min="0" max="100" value="24" oninput="syncWeight('wQuad','nQuad')">
+      <input type="number" class="weight-num" id="nQuad" min="0" max="100" value="24" oninput="syncWeight('nQuad','wQuad')">%
     </div>
     <div class="weight-row">
       <label>KP Overall Rank</label>
-      <input type="range" class="weight-slider" id="wKP" min="0" max="100" value="20" oninput="syncWeight('wKP','nKP')">
-      <input type="number" class="weight-num" id="nKP" min="0" max="100" value="20" oninput="syncWeight('nKP','wKP')">%
+      <input type="range" class="weight-slider" id="wKP" min="0" max="100" value="13" oninput="syncWeight('wKP','nKP')">
+      <input type="number" class="weight-num" id="nKP" min="0" max="100" value="13" oninput="syncWeight('nKP','wKP')">%
     </div>
     <div class="weight-row">
       <label>Seed History</label>
-      <input type="range" class="weight-slider" id="wSeed" min="0" max="100" value="10" oninput="syncWeight('wSeed','nSeed')">
-      <input type="number" class="weight-num" id="nSeed" min="0" max="100" value="10" oninput="syncWeight('nSeed','wSeed')">%
+      <input type="range" class="weight-slider" id="wSeed" min="0" max="100" value="6" oninput="syncWeight('wSeed','nSeed')">
+      <input type="number" class="weight-num" id="nSeed" min="0" max="100" value="6" oninput="syncWeight('nSeed','wSeed')">%
     </div>
     <div class="weight-row">
       <label>Tempo Edge</label>
-      <input type="range" class="weight-slider" id="wTempo" min="0" max="100" value="10" oninput="syncWeight('wTempo','nTempo')">
-      <input type="number" class="weight-num" id="nTempo" min="0" max="100" value="10" oninput="syncWeight('nTempo','wTempo')">%
+      <input type="range" class="weight-slider" id="wTempo" min="0" max="100" value="4" oninput="syncWeight('wTempo','nTempo')">
+      <input type="number" class="weight-num" id="nTempo" min="0" max="100" value="4" oninput="syncWeight('nTempo','wTempo')">%
     </div>
     <div class="weight-row">
       <label>NIL Spend Edge</label>
-      <input type="range" class="weight-slider" id="wNIL" min="0" max="100" value="15" oninput="syncWeight('wNIL','nNIL')">
-      <input type="number" class="weight-num" id="nNIL" min="0" max="100" value="15" oninput="syncWeight('nNIL','wNIL')">%
+      <input type="range" class="weight-slider" id="wNIL" min="0" max="100" value="13" oninput="syncWeight('wNIL','nNIL')">
+      <input type="number" class="weight-num" id="nNIL" min="0" max="100" value="13" oninput="syncWeight('nNIL','wNIL')">%
+    </div>
+    <div class="weight-row">
+      <label>🔥 Heating Up (L5)</label>
+      <input type="range" class="weight-slider" id="wHeat" min="0" max="100" value="10" oninput="syncWeight('wHeat','nHeat')">
+      <input type="number" class="weight-num" id="nHeat" min="0" max="100" value="10" oninput="syncWeight('nHeat','wHeat')">%
     </div>
     <div class="weights-total ok" id="weightsTotal">Total: 100% ✓</div>
     <div class="wm-btns">
@@ -486,8 +491,8 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 
 <div class="tab-bar" id="tabBar">
   <div class="tab" onclick="showRound(0,this)"><span class="tab-short">R64</span><span class="tab-long">Round of 64</span></div>
-  <div class="tab active" onclick="showRound(1,this)"><span class="tab-short">R32</span><span class="tab-long">Round of 32</span></div>
-  <div class="tab" onclick="showRound(2,this)"><span class="tab-short">S16</span><span class="tab-long">Sweet 16</span></div>
+  <div class="tab" onclick="showRound(1,this)"><span class="tab-short">R32</span><span class="tab-long">Round of 32</span></div>
+  <div class="tab active" onclick="showRound(2,this)"><span class="tab-short">S16</span><span class="tab-long">Sweet 16</span></div>
   <div class="tab" onclick="showRound(3,this)"><span class="tab-short">E8</span><span class="tab-long">Elite Eight</span></div>
   <div class="tab" onclick="showRound(4,this)"><span class="tab-short">F4</span><span class="tab-long">Final Four</span></div>
   <div class="tab" onclick="showRound(5,this)"><span class="tab-short">🏆</span><span class="tab-long">Championship</span></div>
@@ -2541,7 +2546,7 @@ const FF_NOTES = {"Prairie View A&M": "First Four: Prairie View A&M 67, Lehigh 5
 // State
 let picks = {};        // key: gameId -> winner name
 let selectedGame = null;
-let currentRound = 1; // R64 is complete — start at R32
+let currentRound = 2; // R64+R32 complete — start at Sweet 16
 
 // ── Pre-seeded R64 results (all games final as of 2026-03-21) ──────────────
 // IDs follow buildR64Games() order: East r64_0–7, West r64_8–15, Midwest r64_16–23, South r64_24–31
@@ -2585,6 +2590,33 @@ const CONFIRMED_R64 = {
 };
 // Apply confirmed results immediately so R32 matchups render on first load
 Object.assign(picks, CONFIRMED_R64);
+
+// ── Pre-seeded R32 results (all games final as of 2026-03-23) ──────────────
+// IDs follow buildRoundGames(1) order: East r1_0–3, West r1_4–7, Midwest r1_8–11, South r1_12–15
+const CONFIRMED_R32 = {
+  // East
+  "r1_0": "Duke",         // Duke beat TCU
+  "r1_1": "St. John's",   // St. John's beat Kansas
+  "r1_2": "Michigan St.", // Michigan St. beat Louisville
+  "r1_3": "Connecticut",  // Connecticut beat UCLA
+  // West
+  "r1_4": "Arizona",      // Arizona beat Utah St.
+  "r1_5": "Arkansas",     // Arkansas beat High Point
+  "r1_6": "Texas",        // Texas beat Gonzaga
+  "r1_7": "Purdue",       // Purdue beat Miami FL
+  // Midwest
+  "r1_8":  "Michigan",    // Michigan beat Saint Louis
+  "r1_9":  "Alabama",     // Alabama beat Texas Tech
+  "r1_10": "Tennessee",   // Tennessee beat Virginia
+  "r1_11": "Iowa St.",    // Iowa St. beat Kentucky
+  // South
+  "r1_12": "Iowa",        // Iowa beat Florida
+  "r1_13": "Nebraska",    // Nebraska beat Vanderbilt
+  "r1_14": "Illinois",    // Illinois beat VCU
+  "r1_15": "Houston",     // Houston beat Texas A&M
+};
+// Apply confirmed R32 results so S16 matchups render correctly
+Object.assign(picks, CONFIRMED_R32);
 let currentFilter = 'all'; // 'all' | 'live' | 'final'
 
 // ── Game filter helpers ──────────────────────────────────────────────────────
@@ -2752,10 +2784,48 @@ function closeMobileDrawer(){
   window.scrollTo(0, scrollY);
 }
 
+// ── Heating Up Metric — last-5-game stats (PPG, FG%, 3P%) scraped Mar 2026 ──
+// heat_z = composite z-score: 0.40×z(PPG) + 0.35×z(FG%) + 0.25×z(3P%) across 32-team S16 field
+// Threshold: heat_z ≥ 0.28 → 🔥 (top ~third), heat_z ≤ -0.20 → ❄️ (bottom ~third)
+const HEAT_STATS = {
+  "Duke":         {ppg_l5:75.8, fg_l5:57.4, three_l5:44.8, heat_z: 0.464},
+  "TCU":          {ppg_l5:73.0, fg_l5:57.2, three_l5:41.4, heat_z: 0.042},
+  "St. John's":   {ppg_l5:82.2, fg_l5:48.4, three_l5:38.6, heat_z:-0.144},
+  "Kansas":       {ppg_l5:76.8, fg_l5:55.2, three_l5:41.2, heat_z: 0.143},
+  "Louisville":   {ppg_l5:75.8, fg_l5:51.2, three_l5:41.4, heat_z:-0.197},
+  "Michigan St.": {ppg_l5:84.8, fg_l5:49.2, three_l5:50.9, heat_z: 0.879},
+  "UCLA":         {ppg_l5:71.6, fg_l5:52.8, three_l5:43.3, heat_z:-0.245},
+  "Connecticut":  {ppg_l5:73.4, fg_l5:46.2, three_l5:47.0, heat_z:-0.357},
+  "Arizona":      {ppg_l5:82.4, fg_l5:46.8, three_l5:48.5, heat_z: 0.391},
+  "Utah St.":     {ppg_l5:76.8, fg_l5:51.0, three_l5:47.3, heat_z: 0.235},
+  "High Point":   {ppg_l5:83.6, fg_l5:49.6, three_l5:44.4, heat_z: 0.409},
+  "Arkansas":     {ppg_l5:90.4, fg_l5:40.0, three_l5:49.5, heat_z: 0.511},
+  "Texas":        {ppg_l5:74.4, fg_l5:46.8, three_l5:42.3, heat_z:-0.548},
+  "Gonzaga":      {ppg_l5:68.8, fg_l5:57.0, three_l5:44.8, heat_z:-0.038},
+  "Miami FL":     {ppg_l5:75.6, fg_l5:53.8, three_l5:45.9, heat_z: 0.264},
+  "Purdue":       {ppg_l5:82.0, fg_l5:46.0, three_l5:44.2, heat_z: 0.031},
+  "Michigan":     {ppg_l5:81.4, fg_l5:42.4, three_l5:43.0, heat_z:-0.344},
+  "Saint Louis":  {ppg_l5:77.6, fg_l5:54.2, three_l5:46.2, heat_z: 0.447},
+  "Texas Tech":   {ppg_l5:70.0, fg_l5:52.4, three_l5:36.0, heat_z:-0.850},
+  "Alabama":      {ppg_l5:88.6, fg_l5:45.2, three_l5:44.8, heat_z: 0.458},
+  "Tennessee":    {ppg_l5:75.8, fg_l5:46.4, three_l5:44.9, heat_z:-0.315},
+  "Virginia":     {ppg_l5:77.8, fg_l5:53.8, three_l5:47.1, heat_z: 0.490},
+  "Kentucky":     {ppg_l5:76.0, fg_l5:44.6, three_l5:46.4, heat_z:-0.334},
+  "Iowa St.":     {ppg_l5:87.2, fg_l5:38.6, three_l5:50.0, heat_z: 0.226},
+  "Florida":      {ppg_l5:83.0, fg_l5:53.4, three_l5:40.3, heat_z: 0.376},
+  "Iowa":         {ppg_l5:71.8, fg_l5:50.2, three_l5:47.7, heat_z:-0.134},
+  "Vanderbilt":   {ppg_l5:78.2, fg_l5:52.4, three_l5:45.0, heat_z: 0.282},
+  "Nebraska":     {ppg_l5:68.8, fg_l5:55.2, three_l5:45.4, heat_z:-0.128},
+  "VCU":          {ppg_l5:71.0, fg_l5:53.2, three_l5:42.6, heat_z:-0.302},
+  "Illinois":     {ppg_l5:85.4, fg_l5:45.2, three_l5:47.3, heat_z: 0.403},
+  "Texas A&M":    {ppg_l5:70.4, fg_l5:46.8, three_l5:36.2, heat_z:-1.210},
+  "Houston":      {ppg_l5:74.8, fg_l5:47.2, three_l5:35.8, heat_z:-0.910},
+};
+
 // ── Model weights (editable via ⚙ Weights button) ──
-// Weights must sum to 100. NIL spend minimum 10%; set to 15% reflecting direct roster quality correlation in the NIL era.
-// Barthag/Quad reduced to accommodate NIL signal. Injury risk is flag-based (see detectUpsetRisk), not a weight.
-const WEIGHTS = { barthag: 30, quad: 27, kp: 14, seed: 7, tempo: 4, nil: 15, inj: 3 };
+// Proportional trim from baseline to add Heating Up at 10%.
+// Barthag 27%, Quad 24%, KP 13%, Seed 6%, Tempo 4%, NIL 13%, Inj 3%, Heat 10% = 100%
+const WEIGHTS = { barthag: 27, quad: 24, kp: 13, seed: 6, tempo: 4, nil: 13, inj: 3, heat: 10 };
 // Note: 'inj' is a soft weight applied when key starter is confirmed OUT (injury flag system handles display)
 
 // ── Per-game manual probability adjustments ──
@@ -3228,8 +3298,10 @@ function openWeights() {
   document.getElementById('wSeed').value    = WEIGHTS.seed;
   document.getElementById('nTempo').value   = WEIGHTS.tempo;
   document.getElementById('wTempo').value   = WEIGHTS.tempo;
-  document.getElementById('nNIL').value     = WEIGHTS.nil || 15;
-  document.getElementById('wNIL').value     = WEIGHTS.nil || 15;
+  document.getElementById('nNIL').value     = WEIGHTS.nil || 13;
+  document.getElementById('wNIL').value     = WEIGHTS.nil || 13;
+  document.getElementById('nHeat').value    = WEIGHTS.heat || 10;
+  document.getElementById('wHeat').value    = WEIGHTS.heat || 10;
   updateWeightsTotal();
   document.getElementById('weightsPanel').classList.add('open');
 }
@@ -3241,7 +3313,7 @@ function syncWeight(srcId, dstId) {
   updateWeightsTotal();
 }
 function updateWeightsTotal() {
-  const total = ['nBarthag','nQuad','nKP','nSeed','nTempo','nNIL']
+  const total = ['nBarthag','nQuad','nKP','nSeed','nTempo','nNIL','nHeat']
     .reduce((s,id) => s + (parseFloat(document.getElementById(id).value)||0), 0);
   const el = document.getElementById('weightsTotal');
   const btn = document.getElementById('applyWeightsBtn');
@@ -3252,8 +3324,8 @@ function updateWeightsTotal() {
   btn.style.opacity = ok ? '1' : '0.4';
 }
 function normalizeWeights() {
-  const ids = ['nBarthag','nQuad','nKP','nSeed','nTempo','nNIL'];
-  const sliders = ['wBarthag','wQuad','wKP','wSeed','wTempo','wNIL'];
+  const ids = ['nBarthag','nQuad','nKP','nSeed','nTempo','nNIL','nHeat'];
+  const sliders = ['wBarthag','wQuad','wKP','wSeed','wTempo','wNIL','wHeat'];
   const vals = ids.map(id => Math.max(0, parseFloat(document.getElementById(id).value)||0));
   const total = vals.reduce((a,b)=>a+b,0);
   if (total === 0) return;
@@ -3271,17 +3343,34 @@ function applyWeights() {
   WEIGHTS.seed    = parseFloat(document.getElementById('nSeed').value)||0;
   WEIGHTS.tempo   = parseFloat(document.getElementById('nTempo').value)||0;
   WEIGHTS.nil     = parseFloat(document.getElementById('nNIL').value)||0;
+  WEIGHTS.heat    = parseFloat(document.getElementById('nHeat').value)||0;
   // Update header subtitle
   document.getElementById('weightsSummary').textContent =
-    `barttorvik.com + KenPom + Season Stats | Composite model: Barthag ${WEIGHTS.barthag}% · Quadrant ${WEIGHTS.quad}% · KP Rank ${WEIGHTS.kp}% · Seeds ${WEIGHTS.seed}% · Tempo ${WEIGHTS.tempo}% · NIL ${WEIGHTS.nil}%`;
+    `barttorvik.com + KenPom + Season Stats | Composite model: Barthag ${WEIGHTS.barthag}% · Quad ${WEIGHTS.quad}% · KP ${WEIGHTS.kp}% · Seed ${WEIGHTS.seed}% · Tempo ${WEIGHTS.tempo}% · NIL ${WEIGHTS.nil}% · 🔥Heat ${WEIGHTS.heat}%`;
   closeWeights();
   // Refresh the analysis pane if a game is selected
   if (window._selectedGame) showAnalysis(window._selectedGame);
 }
 
+// ── Heating Up helpers ────────────────────────────────────────────────────────
+function heatWin(nameA, nameB) {
+  const hA = HEAT_STATS[nameA], hB = HEAT_STATS[nameB];
+  if (!hA || !hB) return 0.5;
+  // logistic function on heat_z delta → naturally bounded [0,1]
+  return 1 / (1 + Math.exp(-0.8 * (hA.heat_z - hB.heat_z)));
+}
+
+function heatBadge(name) {
+  const h = HEAT_STATS[name];
+  if (!h) return '';
+  if (h.heat_z >= 0.28)  return '🔥';
+  if (h.heat_z <= -0.20) return '❄️';
+  return '';
+}
+
 function composite(nameA, nameB, gameId) {
   const a = getTeam(nameA), b = getTeam(nameB);
-  if (!a || !b) return {comp:50,barthag:50,quad:50,kp:50,seed:50,tempo:50,adjusted:false,adjOffset:0,rawComp:50};
+  if (!a || !b) return {comp:50,barthag:50,quad:50,kp:50,seed:50,tempo:50,nil:50,heat:50,adjusted:false,adjOffset:0,rawComp:50};
 
   // 1. Barthag log5
   const ba=a.barthag, bb=b.barthag;
@@ -3334,12 +3423,16 @@ function composite(nameA, nameB, gameId) {
   }
   const injA = injPenalty(nameA), injB = injPenalty(nameB);
 
+  // 8. Heating Up — recent form z-score logistic (last 5 games: PPG, FG%, 3P%)
+  const pHeat = heatWin(nameA, nameB);
+
   // Apply user-controlled weights (normalized to fractions)
   const wB = WEIGHTS.barthag/100, wQ = WEIGHTS.quad/100,
         wK = WEIGHTS.kp/100,      wS = WEIGHTS.seed/100,
-        wT = WEIGHTS.tempo/100,   wN = WEIGHTS.nil/100;
+        wT = WEIGHTS.tempo/100,   wN = WEIGHTS.nil/100,
+        wH = (WEIGHTS.heat||0)/100;
   // Injury applied directly as probability fraction (bypasses wI scaling — PPG formula is self-weighted)
-  let rawComp = wB*pBarth + wQ*pQuad + wK*pKP + wS*pSeed + wT*pTempo + wN*pNIL;
+  let rawComp = wB*pBarth + wQ*pQuad + wK*pKP + wS*pSeed + wT*pTempo + wN*pNIL + wH*pHeat;
   rawComp = Math.max(0.01, Math.min(0.99, rawComp - injA*0.5 + injB*0.5));
 
   // Apply per-game manual adjustment (from ADJUSTMENTS store)
@@ -3354,6 +3447,7 @@ function composite(nameA, nameB, gameId) {
     seed: Math.round(pSeed*1000)/10,
     tempo: Math.round(pTempo*1000)/10,
     nil: Math.round(pNIL*1000)/10,
+    heat: Math.round(pHeat*1000)/10,
     rawComp: Math.round(rawComp*1000)/10,
     adjusted: Math.abs(adjOffset) > 0.001,
     adjOffset: Math.round(adjOffset*100),
@@ -3542,10 +3636,13 @@ function teamSlot(name, game, winner) {
   const injBadge = (injSev === "critical" || injSev === "high")
     ? `<span style="font-size:.62rem;opacity:.9;flex-shrink:0" title="Injury alert — tap to see details">🩹</span>`
     : '';
+  // Heat badge: 🔥 top third, ❄️ bottom third of recent-form field
+  const hb = heatBadge(name);
+  const heatBadgeHtml = hb ? `<span style="font-size:.62rem;flex-shrink:0" title="Heating Up metric — recent form (L5 games)">${hb}</span>` : '';
   return `<div class="team-slot ${cls}"${ffNote}>
     <span class="seed-badge">${seed}</span>
     <span class="tname">${name}${FF_NOTES[name]?'*':''}</span>
-    ${injBadge}
+    ${injBadge}${heatBadgeHtml}
     <div class="trap-dot ${tc}"></div>
     ${getScoreHTML(name, opponent)}
   </div>`;
@@ -3580,7 +3677,8 @@ function showAnalysis(game) {
     {label:"KP Overall",    pct:c.kp,     wt:WEIGHTS.kp+"%"},
     {label:"Seed History",  pct:c.seed,   wt:WEIGHTS.seed+"%"},
     {label:"Tempo Edge",    pct:c.tempo,  wt:WEIGHTS.tempo+"%"},
-    {label:"NIL Spend",     pct:c.nil,    wt:(WEIGHTS.nil||15)+"%"},
+    {label:"NIL Spend",     pct:c.nil,    wt:(WEIGHTS.nil||13)+"%"},
+    {label:"🔥 Heating Up", pct:c.heat,   wt:(WEIGHTS.heat||0)+"%"},
   ];
 
   const recommendation = c.comp >= 65 ? `<strong style="color:var(--teal)">${game.t1}</strong> (strong: ${c.comp}%)` :
