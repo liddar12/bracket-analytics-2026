@@ -492,9 +492,9 @@ header p{font-size:.72rem;color:#9bb;margin-top:2px;white-space:nowrap;overflow:
 <div class="tab-bar" id="tabBar">
   <div class="tab" onclick="showRound(0,this)"><span class="tab-short">R64</span><span class="tab-long">Round of 64</span></div>
   <div class="tab" onclick="showRound(1,this)"><span class="tab-short">R32</span><span class="tab-long">Round of 32</span></div>
-  <div class="tab active" onclick="showRound(2,this)"><span class="tab-short">S16</span><span class="tab-long">Sweet 16</span></div>
+  <div class="tab" onclick="showRound(2,this)"><span class="tab-short">S16</span><span class="tab-long">Sweet 16</span></div>
   <div class="tab" onclick="showRound(3,this)"><span class="tab-short">E8</span><span class="tab-long">Elite Eight</span></div>
-  <div class="tab" onclick="showRound(4,this)"><span class="tab-short">F4</span><span class="tab-long">Final Four</span></div>
+  <div class="tab active" onclick="showRound(4,this)"><span class="tab-short">F4</span><span class="tab-long">Final Four</span></div>
   <div class="tab" onclick="showRound(5,this)"><span class="tab-short">🏆</span><span class="tab-long">Championship</span></div>
 </div>
 
@@ -2546,7 +2546,7 @@ const FF_NOTES = {"Prairie View A&M": "First Four: Prairie View A&M 67, Lehigh 5
 // State
 let picks = {};        // key: gameId -> winner name
 let selectedGame = null;
-let currentRound = 2; // R64+R32 complete — start at Sweet 16
+let currentRound = 4; // S16+E8 complete — Final Four is TODAY (Apr 4, 2026)
 
 // ── Pre-seeded R64 results (all games final as of 2026-03-21) ──────────────
 // IDs follow buildR64Games() order: East r64_0–7, West r64_8–15, Midwest r64_16–23, South r64_24–31
@@ -2617,6 +2617,39 @@ const CONFIRMED_R32 = {
 };
 // Apply confirmed R32 results so S16 matchups render correctly
 Object.assign(picks, CONFIRMED_R32);
+
+// ── Pre-seeded S16 results (all games final as of 2026-03-28) ──────────────
+// IDs follow buildRoundGames(2) order: East r2_0–1, West r2_2–3, Midwest r2_4–5, South r2_6–7
+const CONFIRMED_S16 = {
+  // East
+  "r2_0": "Duke",         // Duke beat St. John's
+  "r2_1": "Connecticut",  // Connecticut beat Michigan St. 67-63
+  // West
+  "r2_2": "Arizona",      // Arizona beat Arkansas 109-88 (worst NCAA loss of Calipari's career)
+  "r2_3": "Purdue",       // Purdue beat Texas 79-77 (Kaufman-Renn tip-in with 0.7s left)
+  // Midwest
+  "r2_4": "Michigan",     // Michigan beat Alabama 90-77
+  "r2_5": "Tennessee",    // Tennessee beat Iowa St.
+  // South
+  "r2_6": "Iowa",         // Iowa beat Nebraska (comeback — first lead with 2:10 left)
+  "r2_7": "Illinois",     // Illinois beat Houston 65-55
+};
+Object.assign(picks, CONFIRMED_S16);
+
+// ── Pre-seeded E8 results (all games final as of 2026-03-30) ──────────────
+// IDs follow buildRoundGames(3) order: East r3_0, West r3_1, Midwest r3_2, South r3_3
+const CONFIRMED_E8 = {
+  // East
+  "r3_0": "Connecticut",  // UConn beat Duke 73-72 (Mullins 35-foot buzzer-beater, 19-pt comeback)
+  // West
+  "r3_1": "Arizona",      // Arizona beat Purdue 79-64
+  // Midwest
+  "r3_2": "Michigan",     // Michigan beat Tennessee 95-62
+  // South
+  "r3_3": "Illinois",     // Illinois beat Iowa 71-59
+};
+Object.assign(picks, CONFIRMED_E8);
+
 let currentFilter = 'all'; // 'all' | 'live' | 'final'
 
 // ── Game filter helpers ──────────────────────────────────────────────────────
@@ -2784,8 +2817,9 @@ function closeMobileDrawer(){
   window.scrollTo(0, scrollY);
 }
 
-// ── Heating Up Metric — last-5-game stats (PPG, FG%, 3P%) scraped Mar 2026 ──
+// ── Heating Up Metric — last-5-game stats (PPG, FG%, 3P%) updated Apr 4 2026 ──
 // heat_z = composite z-score: 0.40×z(PPG) + 0.35×z(FG%) + 0.25×z(3P%) across 32-team S16 field
+// Final Four teams (Michigan, Arizona, Connecticut, Illinois) re-scored against each other using tournament performance
 // Threshold: heat_z ≥ 0.28 → 🔥 (top ~third), heat_z ≤ -0.20 → ❄️ (bottom ~third)
 const HEAT_STATS = {
   "Duke":         {ppg_l5:75.8, fg_l5:57.4, three_l5:44.8, heat_z: 0.464},
@@ -2795,8 +2829,8 @@ const HEAT_STATS = {
   "Louisville":   {ppg_l5:75.8, fg_l5:51.2, three_l5:41.4, heat_z:-0.197},
   "Michigan St.": {ppg_l5:84.8, fg_l5:49.2, three_l5:50.9, heat_z: 0.879},
   "UCLA":         {ppg_l5:71.6, fg_l5:52.8, three_l5:43.3, heat_z:-0.245},
-  "Connecticut":  {ppg_l5:73.4, fg_l5:46.2, three_l5:47.0, heat_z:-0.357},
-  "Arizona":      {ppg_l5:82.4, fg_l5:46.8, three_l5:48.5, heat_z: 0.391},
+  "Connecticut":  {ppg_l5:74.0, fg_l5:47.5, three_l5:32.0, heat_z:-0.980},  // updated: tournament L5 — Solo Ball slumping (8.5 PPG in March vs 14.1 earlier), 5-23 from 3 vs Duke
+  "Arizona":      {ppg_l5:89.5, fg_l5:51.0, three_l5:30.5, heat_z: 0.375},  // updated: tournament L5 — avg 89.5 PPG, dominant paint (60 pts paint + 30 FT vs Arkansas), 363rd nationally in 3P%
   "Utah St.":     {ppg_l5:76.8, fg_l5:51.0, three_l5:47.3, heat_z: 0.235},
   "High Point":   {ppg_l5:83.6, fg_l5:49.6, three_l5:44.4, heat_z: 0.409},
   "Arkansas":     {ppg_l5:90.4, fg_l5:40.0, three_l5:49.5, heat_z: 0.511},
@@ -2804,7 +2838,7 @@ const HEAT_STATS = {
   "Gonzaga":      {ppg_l5:68.8, fg_l5:57.0, three_l5:44.8, heat_z:-0.038},
   "Miami FL":     {ppg_l5:75.6, fg_l5:53.8, three_l5:45.9, heat_z: 0.264},
   "Purdue":       {ppg_l5:82.0, fg_l5:46.0, three_l5:44.2, heat_z: 0.031},
-  "Michigan":     {ppg_l5:81.4, fg_l5:42.4, three_l5:43.0, heat_z:-0.344},
+  "Michigan":     {ppg_l5:93.0, fg_l5:51.0, three_l5:40.0, heat_z: 1.211},  // updated: tournament L5 — 95.3 PPG avg (most by any semifinalist since Kentucky 1993 @ 97.0), 40% from 3 since March 1
   "Saint Louis":  {ppg_l5:77.6, fg_l5:54.2, three_l5:46.2, heat_z: 0.447},
   "Texas Tech":   {ppg_l5:70.0, fg_l5:52.4, three_l5:36.0, heat_z:-0.850},
   "Alabama":      {ppg_l5:88.6, fg_l5:45.2, three_l5:44.8, heat_z: 0.458},
@@ -2817,7 +2851,7 @@ const HEAT_STATS = {
   "Vanderbilt":   {ppg_l5:78.2, fg_l5:52.4, three_l5:45.0, heat_z: 0.282},
   "Nebraska":     {ppg_l5:68.8, fg_l5:55.2, three_l5:45.4, heat_z:-0.128},
   "VCU":          {ppg_l5:71.0, fg_l5:53.2, three_l5:42.6, heat_z:-0.302},
-  "Illinois":     {ppg_l5:85.4, fg_l5:45.2, three_l5:47.3, heat_z: 0.403},
+  "Illinois":     {ppg_l5:79.0, fg_l5:47.0, three_l5:35.0, heat_z:-0.606},  // updated: tournament L5 — KenPom #4, top-10 defense, 36% from 3 in wins vs 31.8% in losses
   "Texas A&M":    {ppg_l5:70.4, fg_l5:46.8, three_l5:36.2, heat_z:-1.210},
   "Houston":      {ppg_l5:74.8, fg_l5:47.2, three_l5:35.8, heat_z:-0.910},
 };
@@ -3209,12 +3243,9 @@ const INJURIES = {
       note:"Starting guard and primary three-point threat. Nebraska loses their spacing anchor and perimeter scoring." }
   ],
   "Connecticut": [
-    { player:"Silas Demary Jr.", pos:"G", role:"starter", injury:"Ankle", status:"QUESTIONABLE",
+    { player:"Solo Ball", pos:"G", role:"starter", injury:"Wrist (undisclosed)", status:"QUESTIONABLE",
       severity:"moderate", ppg:null, rpg:null,
-      note:"Starter. Ankle injuries limit lateral quickness — critical for UConn's defensive pressure system. Watch for game-time reports." },
-    { player:"Jaylin Stewart", pos:"F", role:"starter", injury:"Knee", status:"QUESTIONABLE",
-      severity:"moderate", ppg:null, rpg:null,
-      note:"Two starters questionable creates real lineup uncertainty. UConn's championship pedigree masks depth concerns if both miss time." }
+      note:"Under-the-radar wrist injury has slowed UConn's sharpshooter. Ball is averaging just 8.5 PPG in March (down from 14.1 earlier in the season). Available but clearly diminished — UConn listed as full roster available per NCAA initial report, but Ball's form is a concern vs Illinois." }
   ],
   "UCLA": [
     { player:"Donovan Dent", pos:"G", role:"starter", injury:"Calf strain", status:"QUESTIONABLE",
@@ -3238,7 +3269,11 @@ const INJURIES = {
       severity:"moderate", ppg:9.2, rpg:null,
       note:"9.2 PPG reserve. Meaningful depth loss — Villanova will lean on less-tested players in close late-game situations." }
   ],
-  "Illinois":    [{ player:"Jason Jakstys",  pos:"C", role:"reserve",  injury:"Shoulder",  status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Backup center." }],
+  "Illinois":    [
+    { player:"Ty Rodgers",    pos:"F", role:"starter",  injury:"Torn patellar tendon", status:"OUT",         severity:"high", ppg:null, rpg:null, note:"Starting forward. Out for Final Four and beyond. Significant wing rotation loss ahead of UConn semifinal." },
+    { player:"Jason Jakstys", pos:"C", role:"reserve",  injury:"Blood clots",          status:"OUT",         severity:"moderate", ppg:null, rpg:null, note:"Reserve center. Confirmed out per NCAA injury report. Reduces frontcourt depth." },
+    { player:"Toni Bilic",    pos:"F", role:"reserve",  injury:"Personal (away from team)", status:"OUT",    severity:"low",  ppg:null, rpg:null, note:"Away from the program for personal reasons. Not available for Final Four." }
+  ],
   "Missouri":    [{ player:"Annor Boateng",  pos:"G", role:"reserve",  injury:"Leg",       status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Rotation guard." }],
   "Tennessee":   [{ player:"Cade Phillips",  pos:"F", role:"reserve",  injury:"Shoulder",  status:"OUT",         severity:"low", ppg:null, rpg:null, note:"Bench forward." }],
   "SMU":         [{ player:"B.J. Edwards",   pos:"G", role:"reserve",  injury:"Ankle",     status:"QUESTIONABLE",severity:"low", ppg:null, rpg:null, note:"Backup guard." }],
@@ -3514,7 +3549,7 @@ function renderBracket() {
     let html = `<div style="max-width:600px;margin:0 auto;padding:20px">`;
     html += `<div style="text-align:center;margin-bottom:20px">
       <div style="font-size:1.5rem;color:var(--accent);font-weight:700">🏆 NATIONAL CHAMPIONSHIP</div>
-      <div style="color:#778;font-size:.85rem;margin-top:4px">San Antonio, TX — April 6, 2026</div>
+      <div style="color:#778;font-size:.85rem;margin-top:4px">Indianapolis, IN — April 6, 2026</div>
     </div>`;
     if (winner) {
       html += `<div class="champion-display"><h3>🏆 YOUR CHAMPION</h3><p style="font-size:1.2rem;font-weight:700;margin-top:6px">${winner}</p>`;
@@ -3539,7 +3574,7 @@ function renderBracket() {
   if (currentRound === 4) { // Final Four
     const ffFiltered = games.filter(g => gamePassesFilter(g));
     let html = `<div style="max-width:700px;margin:0 auto;padding:16px">
-      <div style="text-align:center;margin-bottom:16px;color:var(--accent);font-size:1.1rem;font-weight:700">🏟 FINAL FOUR — San Antonio, TX — April 5, 2026</div>`;
+      <div style="text-align:center;margin-bottom:16px;color:var(--accent);font-size:1.1rem;font-weight:700">🏟 FINAL FOUR — Indianapolis, IN — April 5, 2026</div>`;
     if (!ffFiltered.length) {
       html += `<div class="filter-empty"><strong>No ${currentFilter} games</strong>Check back when Final Four games are live, or switch to All.</div>`;
     } else {
@@ -3921,7 +3956,7 @@ function buildBracketViewHTML() {
   const champTeam = champWin ? getTeam(champWin) : null;
 
   html += `<div class="fb-finals">
-    <div class="fb-finals-hdr">🏟 Final Four & Championship — San Antonio · Apr 5-6 2026</div>
+    <div class="fb-finals-hdr">🏟 Final Four & Championship — Indianapolis · Apr 4-6 2026</div>
     <div class="fb-finals-row">
       ${ffGames.map(g => `<div class="fb-ff-item">
         <div class="fb-ff-label">${g.region}</div>
